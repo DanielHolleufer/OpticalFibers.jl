@@ -1,0 +1,4 @@
+name = "OpticalFibers"
+uuid = "a66f2acf-ad95-46e9-8479-8663eca28a6d"
+authors = ["Daniel Holleufer <daniel.holleufer@gmail.com>"]
+version = "0.1.0"
