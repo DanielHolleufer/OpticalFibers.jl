@@ -1,5 +1,10 @@
 module OpticalFibers
 
-greet() = print("Hello World!")
+using Bessels
+using Distributions
+using Integrals
+using LinearAlgebra
+using NonlinearSolve
+using Random
 
-end # module OpticalFibers
+end
