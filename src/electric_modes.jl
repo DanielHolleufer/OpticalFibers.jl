@@ -15,11 +15,10 @@ struct CircularPolarization <: PolarizationBasis end
 #TODO Implement the different variations of
 # Guided mode or radiation mode
 # Circular polarization or linear polarization
-# Internal or external position
 # Cartesian or cylindrical components
 # Componenet returned individually or in a vector
 #
-# This is 2^5 = 32 different implementations
+# This is 2^4 = 16 different implementations
 
 struct Fiber{T<:Real}
     radius::T
@@ -76,19 +75,21 @@ function effective_refractive_index(λ, β)
     return β * λ / 2π
 end
 
+
 """
     electric_guided_mode_cylindrical_components(ρ::Real, a::Real, β::Real, p::Real, q::Real, J1::Real, K1::Real, s::Real)
 
 Compute the underlying cylindrical components of the guided mode electric field used in the
 expressions for both the quasilinear and quasicircular guided modes.
 
-These components for ``\rho < a`` are given by
+These components for ``\\rho < a`` are given by
+
 ```math
-\begin{aligned}
-    e_{\rho} &= \mathrm{i} \frac{q}{p} \frac{K_{1}(q a)}{J_{1}(p a)} [(1 - s) J_{0}(p \rho) - (1 + s) J_{2}(p \rho)] \\
-    e_{\phi} &= -\frac{q}{p} \frac{K_{1}(q a)}{J_{1}(p a)} [(1 - s) J_{0}(p \rho) + (1 + s) J_{2}(p \rho)] \\
-    e_{z} &= \frac{2 q}{\beta} \frac{K_{1}(q a)}{J_{1}(p a)} J_{1}(p \rho)
-\end{aligned}
+\\begin{aligned}
+e_{\\rho} &= \\mathrm{i} \\frac{q}{p} \\frac{K_{1}(q a)}{J_{1}(p a)} [(1 - s) J_{0}(p \\rho) - (1 + s) J_{2}(p \\rho)] \\\\
+e_{\\phi} &= -\\frac{q}{p} \\frac{K_{1}(q a)}{J_{1}(p a)} [(1 - s) J_{0}(p \\rho) + (1 + s) J_{2}(p \\rho)] \\\\
+e_{z} &= \\frac{2 q}{\\beta} \\frac{K_{1}(q a)}{J_{1}(p a)} J_{1}(p \\rho)
+\\end{aligned}
 ```
 """
 function electric_guided_mode_cylindrical_components(ρ::Real, a::Real, β::Real, p::Real, q::Real, J1::Real, K1::Real, s::Real)
@@ -138,7 +139,7 @@ function electric_mode_normalization_constant(a, n, β, p, q, J1, K1, s)
     return 1 / sqrt(2π * solution.u)
 end
 
-function electric_mode(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T, LinearPolarization}) where {T<:Number}
+function electric_mode(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T}, ::LinearPolarization) where {T<:Number}
     a = fiber.radius
     β = fiber.propagation_constant
     p = fiber.internal_parameter
@@ -153,7 +154,7 @@ function electric_mode(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{
     return sqrt(2) * C * [e_ρ * cos(ϕ) * cos(ϕ - ϕ₀) - im * e_ϕ * sin(ϕ) * sin(ϕ - ϕ₀), e_ρ * sin(ϕ) * cos(ϕ - ϕ₀) + im * e_ϕ * cos(ϕ) * sin(ϕ - ϕ₀), f * e_z * cos(ϕ - ϕ₀)]
 end
 
-function electric_guided_mode_cartesian(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T, CircularPolarization}) where {T<:Number}
+function electric_guided_mode_cartesian(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T}, ::CircularPolarization) where {T<:Number}
     a = fiber.radius
     β = fiber.propagation_constant
     p = fiber.internal_parameter
@@ -212,17 +213,17 @@ function electric_radiation_mode_cylindrical_components_external(ρ, a, n, ω, l
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_radiation_mode_cylindrical_components(ρ, a, n, ω, l, m, β, ::CircularPolarization)
+function electric_radiation_mode_cylindrical_components(ρ, a, n, ω, l, m, β, ploarization_basis::CircularPolarization)
     if ρ < a
-        return electric_radiation_mode_cylindrical_components_internal(ρ, a, n, ω, l, m, β, ::CircularPolarization)
+        return electric_radiation_mode_cylindrical_components_internal(ρ, a, n, ω, l, m, β, ploarization_basis)
     else
-        return electric_radiation_mode_cylindrical_components_external(ρ, a, n, ω, l, m, β, ::CircularPolarization)
+        return electric_radiation_mode_cylindrical_components_external(ρ, a, n, ω, l, m, β, ploarization_basis)
     end
 end
 
-function electric_radiation_mode(ρ, ϕ, ω, l, m, β, fiber::Fiber{T}, ::CircularPolarization) where {T<:Number}
+function electric_radiation_mode(ρ, ϕ, ω, l, m, β, fiber::Fiber{T}, ploarization_basis::CircularPolarization) where {T<:Number}
     a = fiber.radius
     n = fiber.refractive_index
-    e_ρ, e_ϕ, e_z = electric_radiation_mode_cylindrical_components(ρ, a, n, ω, l, m, β, ::CircularPolarization)
+    e_ρ, e_ϕ, e_z = electric_radiation_mode_cylindrical_components(ρ, a, n, ω, l, m, β, ploarization_basis)
     return [e_ρ * cos(ϕ) - e_ϕ * sin(ϕ), e_ρ * sin(ϕ) + e_ϕ * cos(ϕ), e_z]
 end

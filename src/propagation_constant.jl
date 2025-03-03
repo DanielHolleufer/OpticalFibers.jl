@@ -1,11 +1,30 @@
 """
     fiber_equation(u, parameters)
 
-Compute the value of eq (A1) in [PRA 95, 023838] with all terms moved to the left hand side,
-where `u` is the propagation constant, and `parameters` contains the fiber radius,
-refraction index, and frequency in said order.
+Compute the value of the characteristic fiber equation with all terms moved to the same side
+of the equal sign, where `u` is the propagation constant, and `parameters` contains the
+fiber radius, refraction index, and frequency in said order.
 
 Used as an input to the non-linear solver to find the propagation constant.
+
+The characteristic fiber equation for single mode cylindrical fibers reads
+[Fam Le Kien and A. Rauschenbeutel, Phys. Rev. A **95**, 023838 (2017)](https://link.aps.org/doi/10.1103/PhysRevA.90.063816)
+
+```math
+\\frac{J_{0}(p a)}{p a J_{1}(pa)} 
++ \\frac{n^{2} + 1}{2 n^{2}} \\frac{K_{1}'(q a)}{q a K_{1}(q a)} 
+- \\frac{1}{p^2 a^2}
++ \\Biggl[\\biggl( \\frac{n^2 - 1}{2 n^2} \\frac{K_{1}'(q a)}{q a K_{1}(q a)} \\biggr)^2
++ \\frac{\\beta^2}{n^2 k^2} \\biggl( \\frac{1}{p^2 a^2} + \\frac{1}{q^2 a^2} \\biggr)^2
+\\Biggr]^{1 / 2}
+= 0,
+```
+
+where ``a`` is the fiber radius, ``k`` is the free space wave number of the light, ``n`` is
+the refractive index of the fiber, ``p = \\sqrt{n^2 k^2 - \\beta^2}``, and
+``q = \\sqrt{\\beta^2 - k^2}``. Futhermore, ``J_n`` and ``K_n`` are Bessel functions of the
+first kind, and modified Bessel functions of the second kind, respectively, and the prime
+denotes the derivative.
 """
 function fiber_equation(u, parameters)
     a, n, ω = parameters
@@ -45,7 +64,7 @@ end
 Compute the derivative of the propagation constant with respect to frequency evaluated at
 `ω` of a fiber with radius `a`, and refactive index `n`.
 """
-function propagation_constant_derivative(a, n, ω; dω = 1e-9)
+function propagation_constant_derivative(a, n, ω; dω=1e-9)
     β_plus = propagation_constant(a, n, ω + dω / 2)
     β_minus = propagation_constant(a, n, ω - dω / 2)
     return (β_plus - β_minus) / dω
