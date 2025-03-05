@@ -17,7 +17,8 @@ OpticalFibers.propagation_constant_derivative
 
 ## Fiber Modes
 ```@docs
-OpticalFibers.electric_guided_mode_cylindrical_components
+OpticalFibers.electric_guided_mode_cylindrical_components_unnormalized
+OpticalFibers.electric_guided_mode_normalization_constant
 ```
 
 ## Master Equation Coefficients
