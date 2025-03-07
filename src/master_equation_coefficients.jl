@@ -49,8 +49,8 @@ Implementation of Eq. (7), top equation from Fam Le Kien and A. Rauschenbeutel.
 """
 function guided_coupling_strength(ρ, ϕ, z, d, l, f, fiber, polarization_basis::CircularPolarization)
     β = fiber.propagation_constant
-    ex, ey, ez = electric_mode_components_outside_cartesian(ρ, ϕ, l, f, fiber, polarization_basis)
-    de = (d[1] * ex + d[2] * ey + d[3] * ez)
+    e_x, e_y, e_z = electric_guided_mode_cartesian_components(ρ, ϕ, l, f, fiber, polarization_basis)
+    de = (d[1] * e_x + d[2] * e_y + d[3] * e_z)
     return de * exp(im * (l * ϕ + f * β * z))
 end
 
@@ -67,7 +67,7 @@ function guided_mode_coefficients(r, d, fiber, polarization_basis::CircularPolar
     dβ = fiber.propagation_constant_derivative
     J = zeros(ComplexF64, N, N)
     Γ = zeros(ComplexF64, N, N)
-    guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis::CircularPolarization, N)
+    guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis, N)
     return J, Γ
 end
 
@@ -83,8 +83,8 @@ function guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarizatio
             z_i = r[3, i]
             z_j = r[3, j]
             for l in (-1, 1), f in (-1, 1)
-                G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis::CircularPolarization)
-                G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis::CircularPolarization)
+                G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis)
+                G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis)
                 J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end
@@ -101,13 +101,13 @@ Compute the guided dipole-dipole and decay coefficients due to the modes with di
 for the master equation describing a cloud of atoms with positions given by the columns in
 `r` (in cartesian coordinates), and dipole moment `d` coupled to an optical fiber.
 """
-function guided_mode_directional_coefficients(r, d, fiber, f)
+function guided_mode_directional_coefficients(r, d, fiber, f, polarization_basis::PolarizationBasis)
     N = size(r)[2]
     ω = fiber.frequency
     dβ = fiber.propagation_constant_derivative
     J = zeros(ComplexF64, N, N)
     Γ = zeros(ComplexF64, N, N)
-    guided_mode_directional_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis::CircularPolarization, N, f)
+    guided_mode_directional_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis, N, f)
     return J, Γ
 end
 
@@ -123,8 +123,8 @@ function guided_mode_directional_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber,
             z_i = r[3, i]
             z_j = r[3, j]
             for l in (-1, 1)
-                G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis::CircularPolarization)
-                G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis::CircularPolarization)
+                G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis)
+                G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis)
                 J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end

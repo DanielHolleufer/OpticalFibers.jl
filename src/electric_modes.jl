@@ -49,7 +49,7 @@ struct Fiber{T<:Real}
         dJ1 = besselj1_derivative(pa)
         dK1 = besselk1_derivative(qa)
         s = (1 / pa^2 + 1 / qa^2) / (dJ1 / (pa * J1) + dK1 / (qa * K1))
-        C = electric_mode_normalization_constant(radius, n, β, p, q, K1J1, s)
+        C = electric_guided_mode_normalization_constant(radius, n, β, p, q, K1J1, s)
 
         return new{T}(radius, wavelength, ω, material, n, β, dβ, V, p, q, K1J1, s, C)
     end
@@ -114,9 +114,9 @@ function electric_guided_mode_cylindrical_components_unnormalized(ρ::Real, a::R
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_mode_normalization_constant_integrand(ρ, parameters)
+function electric_guided_mode_normalization_constant_integrand(ρ, parameters)
     a, n, β, p, q, K1J1, s = parameters
-    e_ρ, e_ϕ, e_z = electric_mode_components(ρ, a, β, p, q, K1J1, s)
+    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_components_unnormalized(ρ, a, β, p, q, K1J1, s)
     abs2e = abs2(e_ρ) + abs2(e_ϕ) + abs2(e_z)
     if ρ < a
         return ρ * n^2 * abs2e
@@ -133,13 +133,13 @@ Compute the normalization constant of an electric guided fiber mode.
 The fiber modes are normalized according to the condition
 ```math
 \\int_{0}^{\\infty} \\! \\mathrm{d} \\rho \\int_{0}^{2 \\pi} \\! \\mathrm{d} \\phi \\, 
-\\epsilon(\\rho) \\lvert \\mathrm{\\mathbf{e}}(\\rho, \\phi) \\rvert^{2} = 1,
+n^{2}(\\rho) \\lvert \\mathrm{\\mathbf{e}}(\\rho, \\phi) \\rvert^{2} = 1,
 ```
-where ``\\epsilon(\\rho)`` is the permitivity given as
+where ``n(\\rho)`` is the step index refractive index given as
 ```math
-\\epsilon(\\rho) = \\begin{cases}
-    n^2, & \\rho < a, \\\\
-    \\epsilon_0 & \\rho > a,
+n(\\rho) = \\begin{cases}
+    n, & \\rho < a, \\\\
+    1 & \\rho > a,
 \\end{cases}
 ```
 and
@@ -150,15 +150,29 @@ where the components are given by [`electric_guided_mode_cylindrical_components_
 function electric_guided_mode_normalization_constant(a::Real, n::Real, β::Real, p::Real, q::Real, K1J1::Real, s::Real)
     parameters = (a, n, β, p, q, K1J1, s)
     domain = (0.0, Inf)
-    problem = IntegralProblem(electric_mode_normalization_constant_integrand, domain, parameters)
+    problem = IntegralProblem(electric_guided_mode_normalization_constant_integrand, domain, parameters)
     solution = solve(problem, HCubatureJL())
     return 1 / sqrt(2π * solution.u)
 end
 
-function electric_mode_external_cartesian_components(ρ, ϕ, l::Integer, f::Integer, fiber::Fiber{T}, ::CircularPolarization) where {T<:Number}
+function electric_guided_mode_normalization_constant_analytical(a::Real, λ::Real, β::Real, p::Real, q::Real, s::Real)
+    ω = 2π / λ
+    
+    D_in_1 = (1 - s) * (1 + (1 - s) * (β / p)^2) * (besselj0(p * a)^2 + besselj1(p * a)^2)
+    D_in_2 = (1 + s) * (1 + (1 + s) * (β / p)^2) * (besselj2(p * a)^2 - besselj1(p * a) * besselj(3, p * a))
+    D_in = D_in_1 + D_in_2
+
+    D_out_1 = (1 - s) * (1 - (1 - s) * (β / q)^2) * (besselk0(q * a)^2 - besselk1(q * a)^2)
+    D_out_2 = (1 + s) * (1 - (1 + s) * (β / q)^2) * (besselk2(q * a)^2 - besselk1(q * a) * besselk(3, q * a))
+    D_out = (besselj1(p * a) / besselk1(q * a))^2 * (D_out_1 + D_out_2)
+
+    return sqrt(4 * ω / (π * a^2 * β)) / sqrt(D_in + D_out)
+end
+
+function electric_guided_mode_cartesian_components_external(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T}, ::CircularPolarization) where {T<:Number}
     β = fiber.propagation_constant
     q = fiber.external_parameter
-    s = fiber.s
+    s = fiber.s_parameter
     C = fiber.normalization_constant
     e_ρ = im * ((1 - s) * besselk0(q * ρ) + (1 + s) * besselk2(q * ρ))
     e_ϕ = -((1 - s) * besselk0(q * ρ) - (1 + s) * besselk2(q * ρ))
@@ -169,30 +183,47 @@ function electric_mode_external_cartesian_components(ρ, ϕ, l::Integer, f::Inte
     return e_x, e_y, e_z
 end
 
+function electric_guided_mode_cartesian_components(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T}, ::CircularPolarization) where {T<:Number}
+    a = fiber.radius
+    β = fiber.propagation_constant
+    p = fiber.internal_parameter
+    q = fiber.external_parameter
+    K1J1 = fiber.besselk1_over_besselj1
+    s = fiber.s_parameter
+    C = fiber.normalization_constant
+
+    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_components_unnormalized(ρ, a, β, p, q, K1J1, s)
+    e_x = C * (e_ρ * cos(ϕ) - l * e_ϕ * sin(ϕ))
+    e_y = C * (e_ρ * sin(ϕ) + l * e_ϕ * cos(ϕ))
+    e_z = C * f * e_z
+
+    return e_x, e_y, e_z
+end
+
 function electric_guided_mode_cartesian(ρ::Real, ϕ::Real, ϕ₀::Real, f::Integer, fiber::Fiber{T}, ::LinearPolarization) where {T<:Number}
     a = fiber.radius
     β = fiber.propagation_constant
     p = fiber.internal_parameter
     q = fiber.external_parameter
     K1J1 = fiber.besselk1_over_besselj1
-    s = fiber.s
+    s = fiber.s_parameter
     C = fiber.normalization_constant
 
-    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_components(ρ, a, β, p, q, K1J1, s)
+    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_components_unnormalized(ρ, a, β, p, q, K1J1, s)
 
     return sqrt(2) * C * [e_ρ * cos(ϕ) * cos(ϕ - ϕ₀) - im * e_ϕ * sin(ϕ) * sin(ϕ - ϕ₀), e_ρ * sin(ϕ) * cos(ϕ - ϕ₀) + im * e_ϕ * cos(ϕ) * sin(ϕ - ϕ₀), f * e_z * cos(ϕ - ϕ₀)]
 end
 
-function electric_guided_mode_cartesian_vector(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T}, ::CircularPolarization) where {T<:Number}
+function electric_guided_mode_cartesian(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber{T}, ::CircularPolarization) where {T<:Number}
     a = fiber.radius
     β = fiber.propagation_constant
     p = fiber.internal_parameter
     q = fiber.external_parameter
     K1J1 = fiber.besselk1_over_besselj1
-    s = fiber.s
+    s = fiber.s_parameter
     C = fiber.normalization_constant
 
-    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_components(ρ, a, β, p, q, K1J1, s)
+    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_components_unnormalized(ρ, a, β, p, q, K1J1, s)
 
     return C * [e_ρ * cos(ϕ) - l * e_ϕ * sin(ϕ), e_ρ * sin(ϕ) + l * e_ϕ * cos(ϕ), f * e_z]
 end
