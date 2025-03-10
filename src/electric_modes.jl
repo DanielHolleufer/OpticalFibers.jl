@@ -33,6 +33,9 @@ struct Fiber{T<:Real}
     s_parameter::T
     normalization_constant::T
     function Fiber(radius::T, wavelength::T, material::Material{T}) where {T<:Real}
+        radius < 0 && throw(ArgumentError("The fiber radius must be greater than zero."))
+        wavelength < 0 && throw(ArgumentError("The wavelength must be greater than zero."))
+
         ω = 2π / wavelength
         n = sellmeier_equation(material, wavelength)
         β = propagation_constant(radius, n, ω)
