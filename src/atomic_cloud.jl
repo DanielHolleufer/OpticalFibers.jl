@@ -1,4 +1,4 @@
-function atomic_cloud(N, distribution, fiber)
+function gaussian_atomic_cloud(N, distribution, fiber)
     r = zeros(3, N)
     for i in 1:N
         while sqrt(r[1, i]^2 + r[2, i]^2) ≤ fiber.radius
