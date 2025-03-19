@@ -40,25 +40,32 @@ function coupling_strengths(d, r, l, f, fiber, polarization_basis::CircularPolar
     return Ωs
 end
 
-function fill_transmissions_three_level!(t, Δes, Δr, Ωs, gs, ω₀, dβ₀, J, Γ, γ, N)
+function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, Γ, γ)
     for i in eachindex(t)
-        M = zeros(ComplexF64, N, N)
-        for k in eachindex(Ωs), j in eachindex(Ωs)
-            if j == k
-                M[j, k] = -Δes[i] - im * Γ[j, k] / 2 + abs2(Ωs[j]) / (Δes[i] + Δr + im * γ / 2)
-            else
-                M[j, k] = -(J[j, k] + im * Γ[j, k] / 2)
-            end
+        for j in eachindex(Ωs)
+            M[j, j] = -Δes[i] - im * Γ[j, j] / 2 + abs2(Ωs[j]) / (Δes[i] + Δr + im * γ / 2)
         end
 
         t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * (M \ gs)
     end
 end
 
-function transmission_three_level(Δes, fiber, Δr, Ωs, gs, J, Γ, γ, N_atoms)
+"""
+    transmission_three_level(Δes, fiber, Δr, Ωs, gs, J, Γ, γ)
+
+Compute the transmission of a cloud of three level atoms surrounding an optical fiber for 
+each value of the lower transition detuning given by `Δes`.
+
+The parameters of the fiber are given by `fiber`, while the atoms have upper transition
+detuning `Δr`, control Rabi frequencies `Ωs`, pump coupling constants `gs`, dipole-dipole
+interaction matrix `J`, cross decay rate matrix `Γ`, and Rydberg to intermediate state decay
+rate `γ`.
+"""
+function transmission_three_level(Δes, fiber, Δr, Ωs, gs, J, Γ, γ)
     ω₀ = fiber.frequency
     dβ₀ = fiber.propagation_constant_derivative
     t = zeros(ComplexF64, length(Δes))
-    fill_transmissions_three_level!(t, Δes, Δr, Ωs, gs, ω₀, dβ₀, J, Γ, γ, N_atoms)
+    M = -(J + im * Γ / 2)
+    fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, Γ, γ)
     return t
 end

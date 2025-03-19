@@ -33,3 +33,8 @@ OpticalFibers.greens_function_free_space
 OpticalFibers.guided_coupling_strength
 OpticalFibers.radiative_coupling_strength
 ```
+
+## Transmission
+```@docs
+transmission_three_level
+```
