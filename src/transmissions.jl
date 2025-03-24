@@ -40,7 +40,13 @@ function coupling_strengths(d, r, l, f, fiber, polarization_basis::CircularPolar
     return Ωs
 end
 
-function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, Γ, γ)
+function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::Number, gs, ω₀, dβ₀, γ)
+    for i in eachindex(t)
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M + (-Δes[i] + abs2(Ωs) / (Δes[i] + Δr + im * γ / 2)) * I) \ gs)
+    end
+end
+
+function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::AbstractArray, gs, ω₀, dβ₀, Γ, γ)
     for i in eachindex(t)
         for j in eachindex(Ωs)
             M[j, j] = -Δes[i] - im * Γ[j, j] / 2 + abs2(Ωs[j]) / (Δes[i] + Δr + im * γ / 2)
@@ -51,17 +57,39 @@ function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀
 end
 
 """
-    transmission_three_level(Δes, fiber, Δr, Ωs, gs, J, Γ, γ)
+    transmission_three_level(Δes, fiber, Δr, Ω::Number, gs, J, Γ, γ)
 
 Compute the transmission of a cloud of three level atoms surrounding an optical fiber for 
-each value of the lower transition detuning given by `Δes`.
+each value of the lower transition detuning given by `Δes`, where each atom experience the
+same Rabi frequency.
+
+The parameters of the fiber are given by `fiber`, while the atoms have upper transition
+detuning `Δr`, control Rabi frequenciy `Ω`, pump coupling constants `gs`, dipole-dipole
+interaction matrix `J`, cross decay rate matrix `Γ`, and Rydberg to intermediate state decay
+rate `γ`.
+"""
+function transmission_three_level(Δes, fiber, Δr, Ωs::Number, gs, J, Γ, γ)
+    ω₀ = fiber.frequency
+    dβ₀ = fiber.propagation_constant_derivative
+    t = zeros(ComplexF64, length(Δes))
+    M = hessenberg(-(J + im * Γ / 2))
+    fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, γ)
+    return t
+end
+
+"""
+    transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
+
+Compute the transmission of a cloud of three level atoms surrounding an optical fiber for 
+each value of the lower transition detuning given by `Δes`, where the Rabi frequency can be
+different from atom to atom.
 
 The parameters of the fiber are given by `fiber`, while the atoms have upper transition
 detuning `Δr`, control Rabi frequencies `Ωs`, pump coupling constants `gs`, dipole-dipole
 interaction matrix `J`, cross decay rate matrix `Γ`, and Rydberg to intermediate state decay
 rate `γ`.
 """
-function transmission_three_level(Δes, fiber, Δr, Ωs, gs, J, Γ, γ)
+function transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
     ω₀ = fiber.frequency
     dβ₀ = fiber.propagation_constant_derivative
     t = zeros(ComplexF64, length(Δes))
