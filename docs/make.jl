@@ -1,6 +1,8 @@
 using Documenter
 using OpticalFibers
 
+DocMeta.setdocmeta!(OpticalFibers, :DocTestSetup, :(using OpticalFibers); recursive=true)
+
 makedocs(;
     sitename="OpticalFibers.jl",
     format=Documenter.HTML(),

@@ -44,13 +44,13 @@ function fiber_equation(u, parameters)
 end
 
 """
-    propagation_constant(a, n, ω)
+    propagation_constant(a::Real, n::Real, ω::Real)
 
 Compute the propagation constant of a fiber with radius `a`, refactive index `n` and
 frequency `ω` by solving the characteristic equation of the fiber as written as eq. (1A) in
 [PRA 95, 023838].
 """
-function propagation_constant(a, n, ω)
+function propagation_constant(a::Real, n::Real, ω::Real)
     uspan = (ω + eps(ω), ω * n - eps(ω * n))
     parameters = (a, n, ω)
     prob_int = IntervalNonlinearProblem(fiber_equation, uspan, parameters)
@@ -59,12 +59,12 @@ function propagation_constant(a, n, ω)
 end
 
 """
-    propagation_constant_derivative(a, n, ω; dω = 1e-9)
+    propagation_constant_derivative(a::Real, n::Real, ω::Real; dω = 1e-9)
 
 Compute the derivative of the propagation constant with respect to frequency evaluated at
 `ω` of a fiber with radius `a`, and refactive index `n`.
 """
-function propagation_constant_derivative(a, n, ω; dω=1e-9)
+function propagation_constant_derivative(a::Real, n::Real, ω::Real; dω=1e-9)
     β_plus = propagation_constant(a, n, ω + dω / 2)
     β_minus = propagation_constant(a, n, ω - dω / 2)
     return (β_plus - β_minus) / dω

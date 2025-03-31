@@ -11,12 +11,20 @@ OpticalFibers.sellmeier_equation
 ## Propagation Constant
 ```@docs
 OpticalFibers.fiber_equation
-OpticalFibers.propagation_constant
-OpticalFibers.propagation_constant_derivative
+propagation_constant(a::Real, n::Real, ω::Real)
+propagation_constant_derivative(a::Real, n::Real, ω::Real)
 ```
 
 ## Fiber Modes
 ```@docs
+radius
+wavelength
+frequency
+material
+refractive_index
+propagation_constant
+propagation_constant_derivative(fiber::Fiber)
+normalized_frequency(fiber::Fiber)
 OpticalFibers.electric_guided_mode_cylindrical_components_unnormalized
 OpticalFibers.electric_guided_mode_normalization_constant
 ```

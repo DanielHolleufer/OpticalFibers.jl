@@ -1,7 +1,9 @@
 module OpticalFibers
 
 export Material
-export Fiber, PolarizationBasis, LinearPolarization, CircularPolarization
+export Fiber, PolarizationBasis, LinearPolarization, CircularPolarization, radius,
+    wavelength, frequency, material, refractive_index, propagation_constant,
+    propagation_constant_derivative, normalized_frequency
 export vacuum_coefficients, guided_mode_coefficients, guided_mode_directional_coefficients,
     radiation_mode_coefficients, radiation_mode_decay_coefficients,
     radiation_mode_directional_coefficients

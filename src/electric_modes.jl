@@ -42,23 +42,21 @@ struct Fiber{T<:Real}
         dβ = propagation_constant_derivative(radius, n, ω)
         V = normalized_frequency(radius, n, ω)
         V > 2.40482 && @warn "Fiber supports multiple modes."
-        p = sqrt(n^2 * ω^2 - β^2)
+        h = sqrt(n^2 * ω^2 - β^2)
         q = sqrt(β^2 - ω^2)
-        pa = p * radius
-        qa = q * radius
-        J1 = besselj1(pa)
-        K1 = besselk1(qa)
+        J1 = besselj1(h * radius)
+        K1 = besselk1(q * radius)
         K1J1 = K1 / J1
-        dJ1 = besselj1_derivative(pa)
-        dK1 = besselk1_derivative(qa)
-        s = (1 / pa^2 + 1 / qa^2) / (dJ1 / (pa * J1) + dK1 / (qa * K1))
-        C = electric_guided_mode_normalization_constant(radius, n, β, p, q, K1J1, s)
+        dJ1 = besselj1_derivative(h * radius)
+        dK1 = besselk1_derivative(q * radius)
+        s = (1 / (h^2 * radius^2) + 1 / (q^2 * radius^2)) / (dJ1 / (h * radius * J1) + dK1 / (q * radius * K1))
+        C = electric_guided_mode_normalization_constant(radius, n, β, h, q, K1J1, s)
 
-        return new{T}(radius, wavelength, ω, material, n, β, dβ, V, p, q, K1J1, s, C)
+        return new{T}(radius, wavelength, ω, material, n, β, dβ, V, h, q, K1J1, s, C)
     end
 end
 
-function Base.show(io::IO, fiber::Fiber{T}) where {T<:Real}
+function Base.show(io::IO, fiber::Fiber)
     println(io, "Optical fiber with parameters:")
     println(io, "Radius: $(fiber.radius)μm")
     println(io, "Wavelength: $(fiber.wavelength)μm")
@@ -67,6 +65,81 @@ function Base.show(io::IO, fiber::Fiber{T}) where {T<:Real}
     println(io, "Propagation constant: $(fiber.propagation_constant)")
     print(io, fiber.material)
 end
+
+"""
+    radius(fiber::Fiber)
+
+Return the radius of the fiber in micrometers.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2));
+
+julia> radius(fiber)
+0.1
+```
+"""
+radius(fiber::Fiber) = fiber.radius
+
+"""
+    wavelength(fiber::Fiber)
+
+Return the wavelength of the fiber mode in micrometers.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2));
+
+julia> wavelength(fiber)
+0.4
+```
+"""
+wavelength(fiber::Fiber) = fiber.wavelength
+
+"""
+    frequency(fiber::Fiber)
+
+Return the frequency of the fiber mode.
+"""
+frequency(fiber::Fiber) = fiber.frequency
+
+"""
+    material(fiber::Fiber)
+
+Return the material of the fiber.
+"""
+material(fiber::Fiber) = fiber.material
+
+"""
+    refractive_index(fiber::Fiber)
+
+Return the refractive index of the fiber for light with the same wavelength as the fiber
+mode.
+"""
+refractive_index(fiber::Fiber) = fiber.refractive_index
+
+"""
+    propagation_constant(fiber::Fiber)
+
+Return the propagation constant of the fiber for light with the same wavelength as the fiber
+mode.
+"""
+propagation_constant(fiber::Fiber) = fiber.propagation_constant
+
+"""
+    propagation_constant_derivative(fiber::Fiber)
+
+Return the derivative of the propagation constant of the fiber evaluated at the the
+wavelength of the fiber mode.
+"""
+propagation_constant_derivative(fiber::Fiber) = fiber.propagation_constant_derivative
+
+"""
+    normalized_frequency(fiber::Fiber)
+
+Return the normalized frequency of the fiber mode.
+"""
+normalized_frequency(fiber::Fiber) = fiber.normalized_frequency
 
 normalized_frequency(a::Real, n::Real, ω::Real) = ω * a * sqrt(n^2 - 1)
 
