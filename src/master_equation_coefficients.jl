@@ -49,9 +49,9 @@ Implementation of Eq. (7), top equation from Fam Le Kien and A. Rauschenbeutel.
 """
 function guided_coupling_strength(ρ, ϕ, z, d, l, f, fiber, polarization_basis::CircularPolarization)
     β = fiber.propagation_constant
-    e_x, e_y, e_z = electric_guided_mode_cartesian_components(ρ, ϕ, l, f, fiber, polarization_basis)
+    e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, l, f, fiber, polarization_basis)
     de = (d[1] * e_x + d[2] * e_y + d[3] * e_z)
-    return de * exp(im * (l * ϕ + f * β * z))
+    return de * exp(im * (f * β * z))
 end
 
 """

@@ -4,6 +4,9 @@ export Material
 export Fiber, PolarizationBasis, LinearPolarization, CircularPolarization, radius,
     wavelength, frequency, material, refractive_index, propagation_constant,
     propagation_constant_derivative, normalized_frequency
+export electric_guided_mode_cylindrical_base_components,
+    electric_guided_mode_profile_cartesian_components,
+    electric_guided_field_cartesian_components, electric_guided_field_cartesian_vector
 export vacuum_coefficients, guided_mode_coefficients, guided_mode_directional_coefficients,
     radiation_mode_coefficients, radiation_mode_decay_coefficients,
     radiation_mode_directional_coefficients
@@ -12,6 +15,7 @@ export single_two_level_transmission, single_three_level_transmission, optical_d
 export gaussian_atomic_cloud
 
 include("materials.jl")
+include("fibers.jl")
 include("propagation_constant.jl")
 include("electric_modes.jl")
 include("master_equation_coefficients.jl")

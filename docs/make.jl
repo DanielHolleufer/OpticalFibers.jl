@@ -1,5 +1,8 @@
 using Documenter
 using OpticalFibers
+using Revise
+
+Revise.revise()
 
 DocMeta.setdocmeta!(OpticalFibers, :DocTestSetup, :(using OpticalFibers); recursive=true)
 

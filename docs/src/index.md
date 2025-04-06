@@ -11,11 +11,11 @@ OpticalFibers.sellmeier_equation
 ## Propagation Constant
 ```@docs
 OpticalFibers.fiber_equation
-propagation_constant(a::Real, n::Real, ω::Real)
-propagation_constant_derivative(a::Real, n::Real, ω::Real)
+OpticalFibers._propagation_constant
+OpticalFibers._propagation_constant_derivative
 ```
 
-## Fiber Modes
+## Fibers
 ```@docs
 radius
 wavelength
@@ -23,10 +23,17 @@ frequency
 material
 refractive_index
 propagation_constant
-propagation_constant_derivative(fiber::Fiber)
-normalized_frequency(fiber::Fiber)
-OpticalFibers.electric_guided_mode_cylindrical_components_unnormalized
-OpticalFibers.electric_guided_mode_normalization_constant
+propagation_constant_derivative
+normalized_frequency
+OpticalFibers.guided_mode_normalization_constant
+```
+
+## Electric Fields
+```@docs
+electric_guided_mode_cylindrical_base_components
+electric_guided_mode_profile_cartesian_components
+electric_guided_field_cartesian_components
+electric_guided_field_cartesian_vector
 ```
 
 ## Master Equation Coefficients
