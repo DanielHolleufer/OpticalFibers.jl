@@ -31,8 +31,8 @@ struct Fiber{T<:Real}
         J1 = besselj1(h * radius)
         K1 = besselk1(q * radius)
         K1J1 = K1 / J1
-        dJ1 = besselj1_derivative(h * radius)
-        dK1 = besselk1_derivative(q * radius)
+        dJ1 = 1 / 2 * (besselj0(h * radius) - besselj(2, h * radius))
+        dK1 =  -1 / 2 * (besselk0(q * radius) + besselk(2, q * radius))
         s = (1 / (h^2 * radius^2) + 1 / (q^2 * radius^2)) / (dJ1 / (h * radius * J1) + dK1 / (q * radius * K1))
         C = guided_mode_normalization_constant(radius, n, β, h, q, K1J1, s)
 
@@ -154,11 +154,11 @@ where the components are given by [`electric_guided_mode_cylindrical_base_compon
 function guided_mode_normalization_constant(a::Real, n::Real, β::Real, h::Real, q::Real, K1J1::Real, s::Real)
     j0 = besselj0(h * a)
     j1 = besselj1(h * a)
-    j2 = besselj2(h * a)
+    j2 = besselj(2, h * a)
     j3 = besselj(3, h * a)
     k0 = besselk0(q * a)
     k1 = besselk1(q * a)
-    k2 = besselk2(q * a)
+    k2 = besselk(2, q * a)
     k3 = besselk(3, q * a)
     
     C_in_1 = (1 - s)^2 * (j0^2 + j1^2) 
