@@ -58,6 +58,14 @@ end
     λ = 0.399
     SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
     fiber = Fiber(a, λ, SiO2)
+    @test propagating_power(fiber) ≈ 1.0 atol=1e-5
 
-    @test propagating_power(fiber) ≈ 1.0 atol=1e-6 
+    λ = 0.395
+    fiber = Fiber(a, λ, SiO2)
+    @test propagating_power(fiber) ≈ 1.0 atol=1e-5
+
+    a = 0.25
+    λ = 0.852
+    fiber = Fiber(a, λ, SiO2)
+    @test propagating_power(fiber) ≈ 1.0 atol=1e-5
 end
