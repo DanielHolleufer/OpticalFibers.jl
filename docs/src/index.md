@@ -25,6 +25,7 @@ refractive_index
 propagation_constant
 propagation_constant_derivative
 normalized_frequency
+effective_refractive_index
 OpticalFibers.guided_mode_normalization_constant
 ```
 

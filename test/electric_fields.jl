@@ -42,10 +42,10 @@ end
         β = fiber.propagation_constant
         h = fiber.internal_parameter
         q = fiber.external_parameter
-        K1J1 = fiber.besselk1_over_besselj1
         A = fiber.normalization_constant
         
         if ρ < a
+            K1J1 = besselk1(q * a) / besselj1(h * a)
             de_z = A * h * q / β * K1J1 * (besselj0(h * ρ) - besselj(2, h * ρ))
         else
             de_z = -A * q^2 / β * (besselk(0, q * ρ) + besselk(2, q * ρ))

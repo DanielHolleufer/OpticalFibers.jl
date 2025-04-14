@@ -37,11 +37,11 @@ function electric_guided_mode_cylindrical_base_components(ρ::Real, fiber::Fiber
     β = propagation_constant(fiber)
     h = fiber.internal_parameter
     q = fiber.external_parameter
-    K1J1 = fiber.besselk1_over_besselj1
     s = fiber.s_parameter
     A = fiber.normalization_constant
 
     if ρ < a
+        K1J1 = besselk1(q * a) / besselj1(h * a)
         e_ρ = im * A * q / h * K1J1 * ((1 - s) * besselj0(h * ρ) - (1 + s) * besselj(2, h * ρ))
         e_ϕ = -A * q / h * K1J1 * ((1 - s) * besselj0(h * ρ) + (1 + s) * besselj(2, h * ρ))
         e_z = 2 * A * q / β * K1J1 * besselj1(h * ρ)
