@@ -12,7 +12,8 @@ export vacuum_coefficients, guided_mode_coefficients, guided_mode_directional_co
     radiation_mode_directional_coefficients
 export single_two_level_transmission, single_three_level_transmission, optical_depth,
     coupling_strengths, transmission_three_level, transmission_two_level
-export gaussian_atomic_cloud
+export gaussian_atomic_cloud, tweezer_trap_intensity, tweezer_trap_potential,
+    fiber_potential
 
 include("materials.jl")
 include("fibers.jl")
