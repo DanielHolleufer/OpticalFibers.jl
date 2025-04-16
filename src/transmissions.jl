@@ -33,9 +33,9 @@ function coupling_strengths(d, r, l, f, fiber, polarization_basis::CircularPolar
         ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
         ϕ_i = atan(r[2, i], r[1, i])
         z_i = r[3, i]
-        e_x, e_y, e_z = electric_guided_mode_cartesian_components(ρ_i, ϕ_i, l, f, fiber, polarization_basis)
+        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, l, f, fiber, polarization_basis)
         d_dot_e = conj(d[1]) * e_x + conj(d[2]) * e_y + conj(d[3]) * e_z
-        Ωs[i] = d_dot_e * exp(im * l * ϕ_i) * exp(im * f * fiber.propagation_constant * z_i)
+        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
     end
     return Ωs
 end
@@ -95,5 +95,29 @@ function transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, �
     t = zeros(ComplexF64, length(Δes))
     M = -(J + im * Γ / 2)
     fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, Γ, γ)
+    return t
+end
+
+function fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
+    for i in eachindex(t)
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M + (-Δes[i]) * I) \ gs)
+    end
+end
+
+"""
+    transmission_two_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
+
+Compute the transmission of a cloud of two level atoms surrounding an optical fiber for 
+each value of the detuning given by `Δes`.
+
+The parameters of the fiber are given by `fiber`, while the atoms have light-matter coupling
+constants `gs`, dipole-dipole interaction matrix `J`, and cross decay rate matrix `Γ`.
+"""
+function transmission_two_level(Δes, fiber, gs, J, Γ)
+    ω₀ = fiber.frequency
+    dβ₀ = fiber.propagation_constant_derivative
+    t = zeros(ComplexF64, length(Δes))
+    M = hessenberg(-(J + im * Γ / 2))
+    fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
     return t
 end
