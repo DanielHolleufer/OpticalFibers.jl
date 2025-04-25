@@ -52,6 +52,16 @@ OpticalFibers.radiative_coupling_strength
 
 ## Transmission
 ```@docs
+transmission_two_level
 transmission_three_level(Δes, fiber, Δr, Ωs::Number, gs, J, Γ, γ)
 transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
+```
+
+## Atomic Traps
+```@docs
+gaussian_beam_intensity
+tweezer_trap_intensity
+tweezer_trap_potential
+fiber_potential
+full_potential
 ```

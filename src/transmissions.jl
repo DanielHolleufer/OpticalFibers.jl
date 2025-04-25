@@ -40,6 +40,48 @@ function coupling_strengths(d, r, l, f, fiber, polarization_basis::CircularPolar
     return Ωs
 end
 
+function coupling_strengths(d::Vector{Vector{ComplexF64}}, r, l, f, fiber, polarization_basis::CircularPolarization)
+    N = size(r)[2]
+    Ωs = zeros(ComplexF64, N)
+    for i in 1:N
+        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
+        ϕ_i = atan(r[2, i], r[1, i])
+        z_i = r[3, i]
+        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, l, f, fiber, polarization_basis)
+        d_dot_e = conj(d[i][1]) * e_x + conj(d[i][2]) * e_y + conj(d[i][3]) * e_z
+        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
+    end
+    return Ωs
+end
+
+function coupling_strengths(d, r, ϕ₀, f, fiber, polarization_basis::LinearPolarization)
+    N = size(r)[2]
+    Ωs = zeros(ComplexF64, N)
+    for i in 1:N
+        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
+        ϕ_i = atan(r[2, i], r[1, i])
+        z_i = r[3, i]
+        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, ϕ₀, f, fiber, polarization_basis)
+        d_dot_e = conj(d[1]) * e_x + conj(d[2]) * e_y + conj(d[3]) * e_z
+        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
+    end
+    return Ωs
+end
+
+function coupling_strengths(d::Vector{Vector{ComplexF64}}, r, ϕ₀, f, fiber, polarization_basis::LinearPolarization)
+    N = size(r)[2]
+    Ωs = zeros(ComplexF64, N)
+    for i in 1:N
+        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
+        ϕ_i = atan(r[2, i], r[1, i])
+        z_i = r[3, i]
+        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, ϕ₀, f, fiber, polarization_basis)
+        d_dot_e = conj(d[i][1]) * e_x + conj(d[i][2]) * e_y + conj(d[i][3]) * e_z
+        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
+    end
+    return Ωs
+end
+
 function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::Number, gs, ω₀, dβ₀, γ)
     for i in eachindex(t)
         t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M + (-Δes[i] + abs2(Ωs) / (Δes[i] + Δr + im * γ / 2)) * I) \ gs)

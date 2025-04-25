@@ -13,7 +13,7 @@ export vacuum_coefficients, guided_mode_coefficients, guided_mode_directional_co
 export single_two_level_transmission, single_three_level_transmission, optical_depth,
     coupling_strengths, transmission_three_level, transmission_two_level
 export gaussian_atomic_cloud, tweezer_trap_intensity, tweezer_trap_potential,
-    fiber_potential
+    fiber_potential, full_potential, gaussian_beam_intensity
 
 include("materials.jl")
 include("fibers.jl")
@@ -30,5 +30,6 @@ using LinearAlgebra
 using NonlinearSolve
 using Optim
 using Random
+using SpecialFunctions: gamma, gamma_inc
 
 end
