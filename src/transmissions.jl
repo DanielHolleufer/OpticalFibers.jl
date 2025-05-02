@@ -2,6 +2,14 @@ function _loss_function_optim(u, f, xdata, ydata)
     return sum(abs2, ydata .- f.(xdata, u...))
 end
 
+function two_level_transmission_amplitude(Δ::Real, Δ_shift::Real, Γ_1D::Real, Γ_loss::Real)
+    return 1 - im * Γ_1D / (Δ - Δ_shift + im * (Γ_1D + Γ_loss) / 2)
+end
+
+function three_level_transmission_amplitude(Δ::Real, Γ_1D::Real, Γ_loss::Real, Ω::Real, Δr::Real, γ::Real)
+    return 1 - im * Γ_1D / (Δ + im * (Γ_1D + Γ_loss) / 2 - Ω^2 / (Δ + Δr + im * γ / 2))
+end
+
 function single_two_level_transmission(Δ::Real, Γ_1D::Real, Γ_loss::Real)
     return 1 - 4 * Γ_1D * Γ_loss / (4 * Δ^2 + (Γ_1D + Γ_loss)^2)
 end
@@ -17,6 +25,11 @@ end
 
 function single_three_level_transmission_fit(Δs, transmission_data, u0)
     res = optimize(u -> _loss_function_optim(u, single_three_level_transmission, Δs, transmission_data), [0.0, 0.0, 0.0, -Inf, 0.0], [Inf, Inf, Inf, Inf, Inf], u0)
+    return Optim.minimizer(res)
+end
+
+function complex_fit_two_level(Δ, t, u0)
+    res = optimize(u -> _loss_function_optim(u, two_level_transmission_amplitude, Δ, t), [-Inf, 0.0, 0.0], [Inf, Inf, Inf], u0)
     return Optim.minimizer(res)
 end
 
@@ -140,9 +153,18 @@ function transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, �
     return t
 end
 
+function transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ, ζ_ground, ζ_intermediate, ζ_top)
+    ω₀ = fiber.frequency
+    dβ₀ = fiber.propagation_constant_derivative
+    t = zeros(ComplexF64, length(Δes))
+    M = -(J + im * Γ / 2)
+    fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, Γ, γ)
+    return t
+end
+
 function fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
     for i in eachindex(t)
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M + (-Δes[i]) * I) \ gs)
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M - Δes[i] * I) \ gs)
     end
 end
 

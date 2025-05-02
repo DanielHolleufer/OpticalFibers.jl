@@ -38,6 +38,28 @@ function vacuum_coefficients(r, d, ω₀)
     return J, Γ
 end
 
+function vacuum_coefficients2(r, d, ω₀)
+    N = size(r)[2]
+    γ₀ = ω₀^3 * norm(d)^2 / (3π)
+    J = zeros(ComplexF64, N, N)
+    Γ = zeros(ComplexF64, N, N)
+    for j in 1:N
+        for i in 1:N
+            x_ij = r[1, i] - r[1, j]
+            y_ij = r[2, i] - r[2, j]
+            z_ij = r[3, i] - r[3, j]
+            dd = norm(d)^2
+            dr = d[1]' * x_ij + d[2]' * y_ij + d[3]' * z_ij / sqrt(x_ij^2 + y_ij^2 + z_ij^2)
+            kr = ω₀ * sqrt(x_ij^2 + y_ij^2 + z_ij^2)
+            if i != j
+                J[i, j] = ω₀^3 / (4 * π) * ((dd - 3 * conj(dr) * dr) * (sin(kr) / kr^2 + cos(kr) / kr^3) - (dd - conj(dr) * dr) * cos(kr) / kr)
+            end
+            Γ[i, j] = ω₀^3 / (2 * π) * ((dd - 3 * conj(dr) * dr) * (cos(kr) / kr^2 - sin(kr) / kr^3) + (dd - conj(dr) * dr) * sin(kr) / kr)
+        end
+    end
+    return J, Γ
+end
+
 function vacuum_coefficients(r, d::Vector{Vector{ComplexF64}}, ω₀)
     N = size(r)[2]
     γ₀ = ω₀^3 * norm(d)^2 / (3π)
@@ -107,7 +129,7 @@ function guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarizatio
             for l in (-1, 1), f in (-1, 1)
                 G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis)
                 G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis)
-                J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
+                J_ij = sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end
             J[i, j] = im * ω * dβ / 4 * J_ij
@@ -163,7 +185,7 @@ function guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarizatio
             for ξ in (0.0, π / 2), f in (-1, 1)
                 G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, ξ, f, fiber, polarization_basis)
                 G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, ξ, f, fiber, polarization_basis)
-                J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
+                J_ij = sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end
             J[i, j] = im * ω * dβ / 4 * J_ij
@@ -275,7 +297,7 @@ Compute the decay coefficients for the master equation describing a cloud of ato
 positions given by the columns in `r` (in cartesian coordinates), and dipole moment `d`
 coupled to the radiation modes from an optical fiber.
 """
-function radiation_mode_decay_coefficients(r, d, fiber; abstol = 1e-3)
+function radiation_mode_decay_coefficients(r, d, fiber; abstol = 1e-6)
     N = size(r)[2]
     Γ = zeros(ComplexF64, N, N)
     ω₀ = fiber.frequency
@@ -304,7 +326,7 @@ function radiation_mode_decay_coefficients(r, d, fiber; abstol = 1e-3)
     return Γ
 end
 
-function radiation_mode_decay_coefficients(r, d::Vector{Vector{ComplexF64}}, fiber; abstol = 1e-3)
+function radiation_mode_decay_coefficients(r, d::Vector{Vector{ComplexF64}}, fiber; abstol = 1e-6)
     N = size(r)[2]
     Γ = zeros(ComplexF64, N, N)
     ω₀ = fiber.frequency
@@ -334,32 +356,34 @@ function radiation_mode_decay_coefficients(r, d::Vector{Vector{ComplexF64}}, fib
 end
 
 """
-    radiation_mode_coefficients(r, d, fiber; abstol = 1e-3)
+    radiation_mode_coefficients(r, d, fiber; abstol = 1e-6)
 
 Compute the dipole-dipole and decay coefficients for the master equation describing
 a cloud of atoms with positions given by the columns in `r` (in cartesian coordinates), and
 dipole moment `d` coupled to the radiation modes from an optical fiber.
 """
-function radiation_mode_coefficients(r, d, fiber; abstol = 1e-3)
+function radiation_mode_coefficients(r, d, fiber; abstol = 1e-6)
     N = size(r)[2]
     ω₀ = fiber.frequency
-    γ₀ = ω₀^3 / (3π)
+    γ₀ = ω₀^3 * norm(d)^2 / (3π)
     J = zeros(ComplexF64, N, N)
     J_vacuum, _ = vacuum_coefficients(r, d, ω₀)
     Γ = radiation_mode_decay_coefficients(r, d, fiber; abstol)
 
-    for i in 1:N, j in 1:N
-        J[i, j] = J_vacuum[i, j] * sqrt(Γ[i, i] * Γ[j, j]) / γ₀
+    for j in 1:N
+        for i in 1:N
+            J[i, j] = J_vacuum[i, j] * sqrt(Γ[i, i] * Γ[j, j]) / γ₀
+        end
     end
     
     return J, Γ
 end
 
-function radiation_mode_coefficients(r, d::Vector{Vector{ComplexF64}}, fiber; abstol = 1e-3)
+function radiation_mode_coefficients(r, d::Vector{Vector{ComplexF64}}, fiber; abstol = 1e-6)
     println("Vector of dipole elements were passed.")
     N = size(r)[2]
     ω₀ = fiber.frequency
-    γ₀ = ω₀^3 / (3π)
+    γ₀ = ω₀^3 * norm(d)^2 / (3π)
     J = zeros(ComplexF64, N, N)
     J_vacuum, _ = vacuum_coefficients(r, d, ω₀)
     Γ = radiation_mode_decay_coefficients(r, d, fiber; abstol)
@@ -372,13 +396,13 @@ function radiation_mode_coefficients(r, d::Vector{Vector{ComplexF64}}, fiber; ab
 end
 
 """
-    radiation_mode_directional_coefficients(r, d, fiber, f; abstol = 1e-3)
+    radiation_mode_directional_coefficients(r, d, fiber, f; abstol = 1e-6)
 
 Compute the dipole-dipole and decay coefficients for the master equation describing
 a cloud of atoms with positions given by the columns in `r` (in cartesian coordinates), and
 dipole moment `d` coupled to the radiation modes with directions `f` from an optical fiber.
 """
-function radiation_mode_directional_coefficients(r, d, fiber, f; abstol = 1e-3)
+function radiation_mode_directional_coefficients(r, d, fiber, f; abstol = 1e-6)
     N = size(r)[2]
     Γ = zeros(ComplexF64, N, N)
     ω₀ = fiber.frequency
