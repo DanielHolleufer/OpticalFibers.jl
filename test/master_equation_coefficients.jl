@@ -74,8 +74,9 @@ end
     # https://doi.org/10.1103/PhysRevA.90.023805
     test_data = readdlm("data/GuidedModeMasterEquationCoefficients.txt", ',', ComplexF64)
     
-    # Store results in the same format as the test data
-    data = [Γ_22_ρs J_12_ρs Γ_12_ρs Γ_22_p_ρs Γ_12_p_ρs Γ_22_m_ρs Γ_12_m_ρs Γ_22_zs J_12_zs Γ_12_zs Γ_22_p_zs Γ_12_p_zs Γ_22_m_zs Γ_12_m_zs]
+    # Store results in the same format as the test data. Note that we have a different sign
+    # convention for the dipole-dipole interaction coeffecients, so we multiply ours by -1.
+    data = [Γ_22_ρs -J_12_ρs Γ_12_ρs Γ_22_p_ρs Γ_12_p_ρs Γ_22_m_ρs Γ_12_m_ρs Γ_22_zs -J_12_zs Γ_12_zs Γ_22_p_zs Γ_12_p_zs Γ_22_m_zs Γ_12_m_zs]
     @test data ≈ test_data atol=1e-6
 end
 

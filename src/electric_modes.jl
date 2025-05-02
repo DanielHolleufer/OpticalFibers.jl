@@ -202,34 +202,46 @@ besselj_derivative(m, x) = 1 / 2 * (besselj(m - 1, x) - besselj(m + 1, x))
 hankelh1_derivative(m, x) = 1 / 2 * (hankelh1(m - 1, x) - hankelh1(m + 1, x))
 hankelh2_derivative(m, x) = 1 / 2 * (hankelh2(m - 1, x) - hankelh2(m + 1, x))
 
-function electric_radiation_mode_cylindrical_components_internal(ρ, a, n, ω, l, m, β)
-    p = sqrt(ω^2 * n^2 - β^2)
+function electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β, l::Integer, m::Integer, fiber)
+    a = fiber.radius
+    n = fiber.refractive_index
+    h = sqrt(n^2 * ω^2 - β^2)
     q = sqrt(ω^2 - β^2)
-    V_1 = m * ω * β / (a * p^2 * q^2) * (1 - n^2) * besselj(m, p * a) * conj(hankelh1(m, q * a))
-    M_1 = 1 / p * besselj_derivative(m, p * a) * conj(hankelh1(m, q * a)) - 1 / q * besselj(m, p * a) * conj(hankelh1_derivative(m, q * a))
-    L_1 = n^2 / p * besselj_derivative(m, p * a)* conj(hankelh1(m, q * a)) - 1 / q * besselj(m, p * a) * conj(hankelh1_derivative(m, q * a))
+    V_1 = m * ω * β / (a * h^2 * q^2) * (1 - n^2) * besselj(m, h * a) * conj(hankelh1(m, q * a))
+    M_1 = 1 / h * besselj_derivative(m, h * a) * conj(hankelh1(m, q * a)) - 1 / q * besselj(m, h * a) * conj(hankelh1_derivative(m, q * a))
+    L_1 = n^2 / h * besselj_derivative(m, h * a)* conj(hankelh1(m, q * a)) - 1 / q * besselj(m, h * a) * conj(hankelh1_derivative(m, q * a))
     η = sqrt((abs2(V_1) + abs2(L_1)) / (abs2(V_1) + abs2(M_1)))
     B = im * l * η
     C_1 = -im * π * q^2 * a / 4 * (L_1 + im * B * V_1)
     D_1 = im * π * q^2 * a / 4 * (im * V_1 - B * M_1)
     N_ν = 8π * ω / (q^2) * (abs2(C_1) + abs2(D_1))
     A = 1 / sqrt(N_ν)
-    e_ρ = A * im / (p^2) * (β * p * besselj_derivative(m, p * ρ) + im * m * ω / ρ * B * besselj(m, p * ρ))
-    e_ϕ = A * im / (p^2) * (im * m * β / ρ * besselj(m, p * ρ) - p * ω * B * besselj_derivative(m, p * ρ))
-    e_z = A * besselj(m, p * ρ)
+    e_ρ = A * im / (h^2) * (β * h * besselj_derivative(m, h * ρ) + im * m * ω / ρ * B * besselj(m, h * ρ))
+    e_ϕ = A * im / (h^2) * (im * m * β / ρ * besselj(m, h * ρ) - h * ω * B * besselj_derivative(m, h * ρ))
+    e_z = A * besselj(m, h * ρ)
 
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_radiation_mode_cylindrical_components_external(ρ, a, n, ω, l, m, β)
-    p = sqrt(ω^2 * n^2 - β^2)
+function electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β, l::Integer, m::Integer, fiber)
+    a = fiber.radius
+    n = fiber.refractive_index
+    h = sqrt(n^2 * ω^2 - β^2)
     q = sqrt(ω^2 - β^2)
-    V_1 = m * ω * β / (a * p^2 * q^2) * (1 - n^2) * besselj(m, p * a) * conj(hankelh1(m, q * a))
-    V_2 = m * ω * β / (a * p^2 * q^2) * (1 - n^2) * besselj(m, p * a) * conj(hankelh2(m, q * a))
-    M_1 = 1 / p * besselj_derivative(m, p * a) * conj(hankelh1(m, q * a)) - 1 / q * besselj(m, p * a) * conj(hankelh1_derivative(m, q * a))
-    M_2 = 1 / p * besselj_derivative(m, p * a) * conj(hankelh2(m, q * a)) - 1 / q * besselj(m, p * a) * conj(hankelh2_derivative(m, q * a))
-    L_1 = n^2 / p * besselj_derivative(m, p * a)* conj(hankelh1(m, q * a)) - 1 / q * besselj(m, p * a) * conj(hankelh1_derivative(m, q * a))
-    L_2 = n^2 / p * besselj_derivative(m, p * a)* conj(hankelh2(m, q * a)) - 1 / q * besselj(m, p * a) * conj(hankelh2_derivative(m, q * a))
+
+    Jma = besselj(m, h * a)
+    dJma = besselj_derivative(m, h * a)
+    h1ma = hankelh1(m, q * a)
+    h2ma = hankelh2(m, q * a)
+    dh1ma = 1 / 2 * (hankelh1(m - 1, q * a) - hankelh1(m + 1, q * a))
+    dh2ma = 1 / 2 * (hankelh2(m - 1, q * a) - hankelh2(m + 1, q * a))
+
+    V_1 = m * ω * β / (a * h^2 * q^2) * (1 - n^2) * Jma * conj(h1ma)
+    V_2 = m * ω * β / (a * h^2 * q^2) * (1 - n^2) * Jma * conj(h2ma)
+    M_1 = 1 / h * dJma * conj(h1ma) - 1 / q * Jma * conj(dh1ma)
+    M_2 = 1 / h * dJma * conj(h2ma) - 1 / q * Jma * conj(dh2ma)
+    L_1 = n^2 / h * dJma * conj(h1ma) - 1 / q * Jma * conj(dh1ma)
+    L_2 = n^2 / h * dJma * conj(h2ma) - 1 / q * Jma * conj(dh2ma)
     η = sqrt((abs2(V_1) + abs2(L_1)) / (abs2(V_1) + abs2(M_1)))
     B = im * l * η
     C_1 = -im * π * q^2 * a / 4 * (L_1 + im * B * V_1)
@@ -239,24 +251,36 @@ function electric_radiation_mode_cylindrical_components_external(ρ, a, n, ω, l
     N_ν = 8π * ω / (q^2) * (abs2(C_1) + abs2(D_1))
     A = 1 / sqrt(N_ν)
 
-    e_ρ = A * im / (q^2) * (β * q * C_1 * hankelh1_derivative(m, q * ρ) + im * m * ω / ρ * D_1 * hankelh1(m, q * ρ) + β * q * C_2 * hankelh2_derivative(m, q * ρ) + im * m * ω / ρ * D_2 * hankelh2(m, q * ρ))
-    e_ϕ = A * im / (q^2) * (im * m * β / ρ * C_1 * hankelh1(m, q * ρ) - q * ω * D_1 * hankelh1_derivative(m, q * ρ) + im * m * β / ρ * C_2 * hankelh2(m, q * ρ) - q * ω * D_2 * hankelh2_derivative(m, q * ρ))
-    e_z = A * (C_1 * hankelh1(m, q * ρ) + C_2 * hankelh2(m, q * ρ))
+    h1mρ = hankelh1(m, q * ρ)
+    h2mρ = hankelh2(m, q * ρ)
+    dh1mρ = 1 / 2 * (hankelh1(m - 1, q * ρ) - hankelh1(m + 1, q * ρ))
+    dh2mρ = 1 / 2 * (hankelh2(m - 1, q * ρ) - hankelh2(m + 1, q * ρ))
+
+    e_ρ = A * im / (q^2) * (β * q * C_1 * dh1mρ + im * m * ω / ρ * D_1 * h1mρ + β * q * C_2 * dh2mρ + im * m * ω / ρ * D_2 * h2mρ)
+    e_ϕ = A * im / (q^2) * (im * m * β / ρ * C_1 * h1mρ - q * ω * D_1 * dh1mρ + im * m * β / ρ * C_2 * h2mρ - q * ω * D_2 * dh2mρ)
+    e_z = A * (C_1 * h1mρ + C_2 * h2mρ)
 
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_radiation_mode_cylindrical_components(ρ, a, n, ω, l, m, β)
-    if ρ < a
-        return electric_radiation_mode_cylindrical_components_internal(ρ, a, n, ω, l, m, β)
+function electric_radiation_mode_cylindrical_base_components(ρ, ω, β, l, m, fiber)
+    if ρ < fiber.radius
+        return electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β, l, m, fiber)
     else
-        return electric_radiation_mode_cylindrical_components_external(ρ, a, n, ω, l, m, β)
+        return electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β, l, m, fiber)
     end
 end
 
-function electric_radiation_mode(ρ, ϕ, ω, l, m, β, fiber::Fiber{T}) where {T<:Number}
-    a = fiber.radius
-    n = fiber.refractive_index
-    e_ρ, e_ϕ, e_z = electric_radiation_mode_cylindrical_components(ρ, a, n, ω, l, m, β)
+function electric_radiation_field_cartesian_components(ρ, ϕ, ω, β, l::Integer, m::Integer, fiber::Fiber{T}) where {T<:Number}
+    e_ρ, e_ϕ, e_z = electric_radiation_mode_cylindrical_base_components(ρ, ω, β, l, m, fiber)
+
+    e_x = e_ρ * cos(ϕ) - e_ϕ * sin(ϕ)
+    e_y = e_ρ * sin(ϕ) + e_ϕ * cos(ϕ)
+
+    return e_x, e_y, e_z
+end
+
+function electric_radiation_mode(ρ, ϕ, ω, β, l::Integer, m::Integer, fiber::Fiber{T}) where {T<:Number}
+    e_ρ, e_ϕ, e_z = electric_radiation_mode_cylindrical_base_components(ρ, ω, β, l, m, fiber)
     return [e_ρ * cos(ϕ) - e_ϕ * sin(ϕ), e_ρ * sin(ϕ) + e_ϕ * cos(ϕ), e_z]
 end
