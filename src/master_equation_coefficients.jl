@@ -129,7 +129,7 @@ function guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarizatio
             for l in (-1, 1), f in (-1, 1)
                 G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis)
                 G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis)
-                J_ij = sign(f * (z_i - z_j)) * G_i * G_j'
+                J_ij += sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end
             J[i, j] = im * ω * dβ / 4 * J_ij
@@ -152,7 +152,7 @@ function guided_mode_coefficients_fill!(J, Γ, r, d::Vector{Vector{ComplexF64}},
             for l in (-1, 1), f in (-1, 1)
                 G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d[i], l, f, fiber, polarization_basis)
                 G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d[j], l, f, fiber, polarization_basis)
-                J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
+                J_ij += sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end
             J[i, j] = im * ω * dβ / 4 * J_ij
@@ -185,7 +185,7 @@ function guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarizatio
             for ξ in (0.0, π / 2), f in (-1, 1)
                 G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, ξ, f, fiber, polarization_basis)
                 G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, ξ, f, fiber, polarization_basis)
-                J_ij = sign(f * (z_i - z_j)) * G_i * G_j'
+                J_ij += sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end
             J[i, j] = im * ω * dβ / 4 * J_ij
@@ -209,7 +209,7 @@ function guided_mode_coefficients_fill!(J, Γ, r, d::Vector{Vector{ComplexF64}},
             for ξ in (0.0, π / 2), f in (-1, 1)
                 G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d[i], ξ, f, fiber, polarization_basis)
                 G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d[j], ξ, f, fiber, polarization_basis)
-                J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
+                J_ij += sign(f * (z_i - z_j)) * G_i * G_j'
                 Γ_ij += G_i * G_j'
             end
             J[i, j] = im * ω * dβ / 4 * J_ij
