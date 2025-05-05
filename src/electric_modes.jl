@@ -198,27 +198,33 @@ function electric_guided_field_cartesian_vector(ρ::Real, ϕ::Real, ϕ₀::Real,
     return collect(electric_guided_field_cartesian_components(ρ, ϕ, z, t, ϕ₀, f, fiber, polarization_basis, power))
 end
 
-besselj_derivative(m, x) = 1 / 2 * (besselj(m - 1, x) - besselj(m + 1, x))
-hankelh1_derivative(m, x) = 1 / 2 * (hankelh1(m - 1, x) - hankelh1(m + 1, x))
-hankelh2_derivative(m, x) = 1 / 2 * (hankelh2(m - 1, x) - hankelh2(m + 1, x))
-
 function electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β, l::Integer, m::Integer, fiber)
     a = fiber.radius
     n = fiber.refractive_index
     h = sqrt(n^2 * ω^2 - β^2)
     q = sqrt(ω^2 - β^2)
-    V_1 = m * ω * β / (a * h^2 * q^2) * (1 - n^2) * besselj(m, h * a) * conj(hankelh1(m, q * a))
-    M_1 = 1 / h * besselj_derivative(m, h * a) * conj(hankelh1(m, q * a)) - 1 / q * besselj(m, h * a) * conj(hankelh1_derivative(m, q * a))
-    L_1 = n^2 / h * besselj_derivative(m, h * a)* conj(hankelh1(m, q * a)) - 1 / q * besselj(m, h * a) * conj(hankelh1_derivative(m, q * a))
+
+    Jma = besselj(m, h * a)
+    dJma = 1 / 2 * (besselj(m - 1, h * a) - besselj(m + 1, h * a))
+    h1ma = hankelh1(m, q * a)
+    dh1ma = 1 / 2 * (hankelh1(m - 1, q * a) - hankelh1(m + 1, q * a))
+
+    V_1 = m * ω * β / (a * h^2 * q^2) * (1 - n^2) * Jma * conj(h1ma)
+    M_1 = 1 / h * dJma * conj(h1ma) - 1 / q * Jma * conj(dh1ma)
+    L_1 = n^2 / h * dJma * conj(h1ma) - 1 / q * Jma * conj(dh1ma)
     η = sqrt((abs2(V_1) + abs2(L_1)) / (abs2(V_1) + abs2(M_1)))
     B = im * l * η
     C_1 = -im * π * q^2 * a / 4 * (L_1 + im * B * V_1)
     D_1 = im * π * q^2 * a / 4 * (im * V_1 - B * M_1)
     N_ν = 8π * ω / (q^2) * (abs2(C_1) + abs2(D_1))
     A = 1 / sqrt(N_ν)
-    e_ρ = A * im / (h^2) * (β * h * besselj_derivative(m, h * ρ) + im * m * ω / ρ * B * besselj(m, h * ρ))
-    e_ϕ = A * im / (h^2) * (im * m * β / ρ * besselj(m, h * ρ) - h * ω * B * besselj_derivative(m, h * ρ))
-    e_z = A * besselj(m, h * ρ)
+
+    Jmρ = besselj(m, h * ρ)
+    dJmρ = 1 / 2 * (besselj(m - 1, h * a) - besselj(m + 1, h * ρ))
+    
+    e_ρ = A * im / (h^2) * (β * h * dJmρ + im * m * ω / ρ * B * Jmρ)
+    e_ϕ = A * im / (h^2) * (im * m * β / ρ * Jmρ - h * ω * B * dJmρ)
+    e_z = A * Jmρ
 
     return e_ρ, e_ϕ, e_z
 end
@@ -230,7 +236,7 @@ function electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β
     q = sqrt(ω^2 - β^2)
 
     Jma = besselj(m, h * a)
-    dJma = besselj_derivative(m, h * a)
+    dJma = 1 / 2 * (besselj(m - 1, h * a) - besselj(m + 1, h * a))
     h1ma = hankelh1(m, q * a)
     h2ma = hankelh2(m, q * a)
     dh1ma = 1 / 2 * (hankelh1(m - 1, q * a) - hankelh1(m + 1, q * a))
@@ -256,8 +262,14 @@ function electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β
     dh1mρ = 1 / 2 * (hankelh1(m - 1, q * ρ) - hankelh1(m + 1, q * ρ))
     dh2mρ = 1 / 2 * (hankelh2(m - 1, q * ρ) - hankelh2(m + 1, q * ρ))
 
-    e_ρ = A * im / (q^2) * (β * q * C_1 * dh1mρ + im * m * ω / ρ * D_1 * h1mρ + β * q * C_2 * dh2mρ + im * m * ω / ρ * D_2 * h2mρ)
-    e_ϕ = A * im / (q^2) * (im * m * β / ρ * C_1 * h1mρ - q * ω * D_1 * dh1mρ + im * m * β / ρ * C_2 * h2mρ - q * ω * D_2 * dh2mρ)
+    e_ρ = A * im / (q^2) * (β * q * C_1 * dh1mρ
+                            + im * m * ω / ρ * D_1 * h1mρ
+                            + β * q * C_2 * dh2mρ
+                            + im * m * ω / ρ * D_2 * h2mρ)
+    e_ϕ = A * im / (q^2) * (im * m * β / ρ * C_1 * h1mρ
+                            - q * ω * D_1 * dh1mρ
+                            + im * m * β / ρ * C_2 * h2mρ
+                            - q * ω * D_2 * dh2mρ)
     e_z = A * (C_1 * h1mρ + C_2 * h2mρ)
 
     return e_ρ, e_ϕ, e_z
