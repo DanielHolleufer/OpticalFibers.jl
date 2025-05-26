@@ -19,7 +19,8 @@ function gaussian_cloud_normalization_constant_integrand(u, p)
     return gaussian_cloud_distribution(u[1], u[2], u[3], std_x, std_y, std_z, fiber, exclusion_zone)
 end
 
-function gaussian_atomic_cloud(N, distribution, fiber, exclusion_zone = 0.0)
+function gaussian_atomic_cloud(N, std_x, std_y, std_z, fiber, exclusion_zone = 0.0)
+    distribution = MvNormal([std_x, std_y, std_z])
     r = zeros(3, N)
     for i in 1:N
         while sqrt(r[1, i]^2 + r[2, i]^2) ≤ fiber.radius + exclusion_zone
