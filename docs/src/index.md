@@ -32,7 +32,6 @@ OpticalFibers.guided_mode_normalization_constant
 ## Electric Fields
 ```@docs
 electric_guided_mode_cylindrical_base_components
-electric_guided_mode_profile_cartesian_components
 electric_guided_field_cartesian_components
 electric_guided_field_cartesian_vector
 ```
@@ -45,8 +44,6 @@ guided_mode_directional_coefficients
 radiation_mode_decay_coefficients
 radiation_mode_coefficients
 radiation_mode_directional_coefficients
-OpticalFibers.greens_function_free_space
-OpticalFibers.guided_coupling_strength
 OpticalFibers.radiative_coupling_strength
 ```
 

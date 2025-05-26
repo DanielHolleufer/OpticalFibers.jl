@@ -1,7 +1,3 @@
-abstract type PolarizationBasis end
-struct LinearPolarization <: PolarizationBasis end
-struct CircularPolarization <: PolarizationBasis end
-
 struct Fiber{T<:Real}
     radius::T
     wavelength::T

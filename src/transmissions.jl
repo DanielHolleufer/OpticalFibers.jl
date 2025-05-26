@@ -24,7 +24,9 @@ function single_three_level_transmission(Δ::Real, Γ_1D::Real, Γ_loss::Real, �
 end
 
 function single_three_level_transmission_fit(Δs, transmission_data, u0)
-    res = optimize(u -> _loss_function_optim(u, single_three_level_transmission, Δs, transmission_data), [0.0, 0.0, 0.0, -Inf, 0.0], [Inf, Inf, Inf, Inf, Inf], u0)
+    lower_bounds = [0.0, 0.0, 0.0, -Inf, 0.0]
+    upper_bounds = [Inf, Inf, Inf, Inf, Inf]
+    res = optimize(u -> _loss_function_optim(u, single_three_level_transmission, Δs, transmission_data), lower_bounds, upper_bounds, u0)
     return Optim.minimizer(res)
 end
 
@@ -35,80 +37,36 @@ end
 
 function optical_depth(T::Real)
     T < 0 && throw(DomainError(T, "The transmission must be greater than or equal to zero."))
-    T > 1 && throw(ArgumentError("The transmission must be smaller than or equal to one."))
+    T > 1 && throw(DomainError(T, "The transmission must be smaller than or equal to one."))
     return -log(T)
 end
 
-function coupling_strengths(d, r, l, f, fiber, polarization_basis::CircularPolarization)
+function coupling_strengths(d, r, f, fiber, polarization::Polarization)
     N = size(r)[2]
     Ωs = zeros(ComplexF64, N)
     for i in 1:N
         ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
         ϕ_i = atan(r[2, i], r[1, i])
         z_i = r[3, i]
-        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, l, f, fiber, polarization_basis)
+        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, f, fiber, polarization)
         d_dot_e = conj(d[1]) * e_x + conj(d[2]) * e_y + conj(d[3]) * e_z
         Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
     end
     return Ωs
 end
 
-function coupling_strengths(d::Vector{Vector{ComplexF64}}, r, l, f, fiber, polarization_basis::CircularPolarization)
-    N = size(r)[2]
-    Ωs = zeros(ComplexF64, N)
+function rabi_frequencies(d, positions, N, f::Integer, fiber::Fiber, polarization::Polarization, power::Real)
+    rabis = zeros(ComplexF64, N)
     for i in 1:N
-        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-        ϕ_i = atan(r[2, i], r[1, i])
-        z_i = r[3, i]
-        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, l, f, fiber, polarization_basis)
-        d_dot_e = conj(d[i][1]) * e_x + conj(d[i][2]) * e_y + conj(d[i][3]) * e_z
-        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
+        x = positions[1, i]
+        y = positions[2, i]
+        z = positions[3, i]
+        ρ = sqrt(x^2 + y^2)
+        ϕ = atan(y, x)
+        ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, f, fiber, polarization, power)
+        rabis[i] = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
     end
-    return Ωs
-end
-
-function coupling_strengths(d, r, ϕ₀, f, fiber, polarization_basis::LinearPolarization)
-    N = size(r)[2]
-    Ωs = zeros(ComplexF64, N)
-    for i in 1:N
-        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-        ϕ_i = atan(r[2, i], r[1, i])
-        z_i = r[3, i]
-        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, ϕ₀, f, fiber, polarization_basis)
-        d_dot_e = conj(d[1]) * e_x + conj(d[2]) * e_y + conj(d[3]) * e_z
-        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
-    end
-    return Ωs
-end
-
-function coupling_strengths(d::Vector{Vector{ComplexF64}}, r, ϕ₀, f, fiber, polarization_basis::LinearPolarization)
-    N = size(r)[2]
-    Ωs = zeros(ComplexF64, N)
-    for i in 1:N
-        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-        ϕ_i = atan(r[2, i], r[1, i])
-        z_i = r[3, i]
-        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, ϕ₀, f, fiber, polarization_basis)
-        d_dot_e = conj(d[i][1]) * e_x + conj(d[i][2]) * e_y + conj(d[i][3]) * e_z
-        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
-    end
-    return Ωs
-end
-
-function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::Number, gs, ω₀, dβ₀, γ)
-    for i in eachindex(t)
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M + (-Δes[i] + abs2(Ωs) / (Δes[i] + Δr + im * γ / 2)) * I) \ gs)
-    end
-end
-
-function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::AbstractArray, gs, ω₀, dβ₀, Γ, γ)
-    for i in eachindex(t)
-        for j in eachindex(Ωs)
-            M[j, j] = -Δes[i] - im * Γ[j, j] / 2 + abs2(Ωs[j]) / (Δes[i] + Δr + im * γ / 2)
-        end
-
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * (M \ gs)
-    end
+    return rabis
 end
 
 """
@@ -132,6 +90,12 @@ function transmission_three_level(Δes, fiber, Δr, Ωs::Number, gs, J, Γ, γ)
     return t
 end
 
+function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::Number, gs, ω₀, dβ₀, γ)
+    for i in eachindex(t)
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M + (-Δes[i] + abs2(Ωs) / (Δes[i] + Δr + im * γ / 2)) * I) \ gs)
+    end
+end
+
 """
     transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
 
@@ -153,18 +117,13 @@ function transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, �
     return t
 end
 
-function transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ, ζ_ground, ζ_intermediate, ζ_top)
-    ω₀ = fiber.frequency
-    dβ₀ = fiber.propagation_constant_derivative
-    t = zeros(ComplexF64, length(Δes))
-    M = -(J + im * Γ / 2)
-    fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, Γ, γ)
-    return t
-end
-
-function fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
+function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::AbstractArray, gs, ω₀, dβ₀, Γ, γ)
     for i in eachindex(t)
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M - Δes[i] * I) \ gs)
+        for j in eachindex(Ωs)
+            M[j, j] = -Δes[i] - im * Γ[j, j] / 2 + abs2(Ωs[j]) / (Δes[i] + Δr + im * γ / 2)
+        end
+
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * (M \ gs)
     end
 end
 
@@ -184,4 +143,10 @@ function transmission_two_level(Δes, fiber, gs, J, Γ)
     M = hessenberg(-(J + im * Γ / 2))
     fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
     return t
+end
+
+function fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
+    for i in eachindex(t)
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M - Δes[i] * I) \ gs)
+    end
 end

@@ -3,7 +3,44 @@ using OpticalFibers
 using Integrals
 using Bessels
 
-@testset "Argument Checks" begin
+@testset "Polarization" begin
+    linear_x = LinearPolarization(0.0)
+    @test linear_x isa LinearPolarization
+    @test !(linear_x isa CircularPolarization)
+    @test linear_x == LinearPolarization(0)
+    @test linear_x == LinearPolarization('x')
+    @test linear_x == LinearPolarization('X')
+    @test linear_x == LinearPolarization("x")
+    @test linear_x == LinearPolarization("X")
+    @test linear_x == LinearPolarization(:x)
+    @test linear_x == LinearPolarization(:X)
+
+    linear_y = LinearPolarization(π / 2)
+    @test linear_y == LinearPolarization('y')
+    @test linear_y == LinearPolarization('Y')
+    @test linear_y == LinearPolarization("y")
+    @test linear_y == LinearPolarization("Y")
+    @test linear_y == LinearPolarization(:y)
+    @test linear_y == LinearPolarization(:Y)
+
+    @test LinearPolarization(0.0) != LinearPolarization(π / 2)
+
+    @test_throws ErrorException LinearPolarization('z')
+    @test_throws ArgumentError LinearPolarization("xx")
+    @test_throws ArgumentError LinearPolarization(:yy)
+
+    circular_counterclockwise = CircularPolarization(1)
+    @test circular_counterclockwise isa CircularPolarization
+    @test !(circular_counterclockwise isa LinearPolarization)
+    
+    circular_clockwise = CircularPolarization(-1)
+    @test circular_counterclockwise != circular_clockwise 
+    
+    @test_throws MethodError CircularPolarization(1.0)
+    @test_throws DomainError CircularPolarization(2)
+end
+
+@testset "Guided Modes Argument Checks" begin
     a = 0.05
     λ = 0.399
     SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
@@ -11,24 +48,22 @@ using Bessels
 
     @test_throws DomainError electric_guided_mode_cylindrical_base_components(-1.0, fiber)
 
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(-1.0, 0.0, 1, 1, fiber, CircularPolarization())
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 2, 1, fiber, CircularPolarization())
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(1.0, 0.0, -2, 1, fiber, CircularPolarization())
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 1, 2, fiber, CircularPolarization())
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 1, -2, fiber, CircularPolarization())
-    @test_throws MethodError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 1,0, 1, fiber, CircularPolarization())
-    @test_throws MethodError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 1, 1.0, fiber, CircularPolarization())
-
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(-1.0, 0.0, 0.0, 1, fiber, LinearPolarization())
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 0.0, 2, fiber, LinearPolarization())
-    @test_throws DomainError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 0.0, -2, fiber, LinearPolarization())
-    @test_throws MethodError electric_guided_mode_profile_cartesian_components(1.0, 0.0, 0.0, 1.0, fiber, LinearPolarization())
+    linear_x = LinearPolarization(0.0)
+    @test_throws DomainError electric_guided_mode_profile_cylindrical_components(1.0, 0.0, 0, fiber, linear_x)
+    @test_throws DomainError electric_guided_mode_profile_cylindrical_components(1.0, 0.0, 2, fiber, linear_x)
+    @test_throws MethodError electric_guided_mode_profile_cylindrical_components(1.0, 0.0, 1.0, fiber, linear_x)
+    
+    circular_clockwise = CircularPolarization(-1)
+    @test_throws DomainError electric_guided_mode_profile_cylindrical_components(1.0, 0.0, 0, fiber, circular_clockwise)
+    @test_throws DomainError electric_guided_mode_profile_cylindrical_components(1.0, 0.0, 2, fiber, circular_clockwise)
+    @test_throws MethodError electric_guided_mode_profile_cylindrical_components(1.0, 0.0, 1.0, fiber, circular_clockwise)
 end
 
 @testset "Transformation Between Linearly and Circularly Polarized Modes" begin
     function circular_linear_transformation(fiber)
-        xs = LinRange(-25.0, 25.0, 1001)
-        ys = LinRange(-25.0, 25.0, 1001)
+        test_resolution = 513
+        xs = LinRange(-25.0, 25.0, test_resolution)
+        ys = LinRange(-25.0, 25.0, test_resolution)
 
         linearly_polarized_xx_1 = zeros(ComplexF64, length(xs), length(ys))
         linearly_polarized_xy_1 = zeros(ComplexF64, length(xs), length(ys))
@@ -47,10 +82,10 @@ end
             for (i, x) in enumerate(xs)
                 ρ = sqrt(x^2 + y^2)
                 ϕ = atan(y, x)
-                E_lin_x_x, E_lin_x_y, E_lin_x_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, 0.0, 1, fiber, LinearPolarization())
-                E_lin_y_x, E_lin_y_y, E_lin_y_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, π / 2, 1, fiber, LinearPolarization())
-                E_circ_p_x, E_circ_p_y, E_circ_p_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, 1, 1, fiber, CircularPolarization())
-                E_circ_m_x, E_circ_m_y, E_circ_m_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, -1, 1, fiber, CircularPolarization())
+                E_lin_x_x, E_lin_x_y, E_lin_x_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, 1, fiber, LinearPolarization('x'))
+                E_lin_y_x, E_lin_y_y, E_lin_y_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, 1, fiber, LinearPolarization('y'))
+                E_circ_p_x, E_circ_p_y, E_circ_p_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, 1, fiber, CircularPolarization(1))
+                E_circ_m_x, E_circ_m_y, E_circ_m_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, 1, fiber, CircularPolarization(-1))
 
                 linearly_polarized_xx_1[i, j] = E_lin_x_x
                 linearly_polarized_xy_1[i, j] = E_lin_x_y

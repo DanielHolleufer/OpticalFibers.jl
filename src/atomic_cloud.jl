@@ -1,11 +1,47 @@
-function gaussian_atomic_cloud(N, distribution, fiber)
+function gaussian_cloud_distribution(x, y, z, std_x, std_y, std_z, fiber, exclusion_zone = 0.0)
+    if sqrt(x^2 + y^2) ≤ fiber.radius + exclusion_zone
+        return 0.0
+    else
+        return exp(-x^2 / (2 * std_x^2) - y^2 / (2 * std_y^2) - z^2 / (2 * std_z^2))
+    end
+end
+
+function gaussian_cloud_normalization_constant(std_x, std_y, std_z, fiber, exclusion_zone = 0.0)
+    p = std_x, std_y, std_z, fiber, exclusion_zone
+    domain = ([-5 * std_x, -5 * std_y, -5 * std_z], [5 * std_x, 5 * std_y, 5 * std_z])
+    prob = IntegralProblem(gaussian_cloud_normalization_constant_integrand, domain, p)
+    sol = solve(prob, CubaDivonne())
+    return sol.u
+end
+
+function gaussian_cloud_normalization_constant_integrand(u, p)
+    std_x, std_y, std_z, fiber, exclusion_zone = p
+    return gaussian_cloud_distribution(u[1], u[2], u[3], std_x, std_y, std_z, fiber, exclusion_zone)
+end
+
+function gaussian_atomic_cloud(N, distribution, fiber, exclusion_zone = 0.0)
     r = zeros(3, N)
     for i in 1:N
-        while sqrt(r[1, i]^2 + r[2, i]^2) ≤ fiber.radius
+        while sqrt(r[1, i]^2 + r[2, i]^2) ≤ fiber.radius + exclusion_zone
             r[:, i] = rand(distribution)
         end
     end
     return r
+end
+
+function atom_number_gaussian(peak_density_μm, fiber_control, std_x, std_y, std_z, exclusion_zone)
+    a = fiber_control.radius
+    p = std_x, std_y, std_z, fiber_control, exclusion_zone
+    normalization_constant = OpticalFibers.gaussian_cloud_normalization_constant(std_x, std_y, std_z, fiber_control, exclusion_zone)
+    P_M = OpticalFibers.maximum_within_box(gaussian_cloud_normalization_constant_integrand, [2a, 2a, 2a], 5 * std_x, p; algorithm=LBFGS()) / normalization_constant
+    return round(Int, peak_density_μm / P_M)
+end
+
+struct CrossedTweezerTrap
+    waist::Float64
+    power_per_beam::Float64
+    wavelength::Float64
+    stark_shifts::StarkShifts
 end
 
 """
@@ -14,7 +50,10 @@ end
 Compute the intensity at position (`x`, `y`, `z`) of a gaussian beam parallel to the z-axis
 with parameters `waist`, `power`, and `wavelength`.
 """
-function gaussian_beam_intensity(x::Real, y::Real, z::Real, waist::Real, power::Real, wavelength::Real)
+function gaussian_beam_intensity(x::Real, y::Real, z::Real, tweezer_trap::CrossedTweezerTrap)
+    waist = tweezer_trap.waist
+    wavelength = tweezer_trap.wavelength
+    power = tweezer_trap.power_per_beam
     z_r = π * waist^2 / wavelength
     w = waist * sqrt(1 + (z / z_r)^2)
     intensity_max = 2 * power / (π * waist^2)
@@ -29,9 +68,9 @@ Compute the intensity at position (`x`, `y`, `z`) of a dipole tweezer trap consi
 beam parallel to the gaussian beams, one along the x-axis and one along the y-axis, where
 both beams have parameters `waist`, `power`, and `wavelength`.
 """
-function tweezer_trap_intensity(x::Real, y::Real, z::Real, waist::Real, power::Real, wavelength::Real)
-    tweezer_x = gaussian_beam_intensity(z, y, x, waist, power, wavelength)
-    tweezer_y = gaussian_beam_intensity(x, z, y, waist, power, wavelength)
+function tweezer_trap_intensity(x::Real, y::Real, z::Real,tweezer_trap::CrossedTweezerTrap)
+    tweezer_x = gaussian_beam_intensity(z, y, x, tweezer_trap)
+    tweezer_y = gaussian_beam_intensity(x, z, y, tweezer_trap)
     return tweezer_x + tweezer_y
 end
 
@@ -43,8 +82,9 @@ beam parallel to the gaussian beams, one along the x-axis and one along the y-ax
 both beams have parameters `waist`, `power`, and `wavelength`, and the stark_shift per unit
 intensity is `stark_shift`.
 """
-function tweezer_trap_potential(x::Real,y::Real, z::Real, waist::Real, power::Real, wavelength::Real, stark_shift::Real)
-    return stark_shift * tweezer_trap_intensity(x, y, z, waist, power, wavelength)
+function tweezer_trap_potential(x::Real,y::Real, z::Real, tweezer_trap::CrossedTweezerTrap)
+    stark_shift = tweezer_trap.stark_shifts.ground_state
+    return stark_shift * tweezer_trap_intensity(x, y, z, tweezer_trap)
 end
 
 """
@@ -54,10 +94,10 @@ Compute the potential at position (`x`, `y`, `z`) of a circularly polarized fibe
 the z-axis with polarization index `l`, direction of propagation index `f`, `power`, and the
 stark_shift per unit intensity is `stark_shift`.
 """
-function fiber_potential(x::Real, y::Real, z::Real, l::Integer, f::Integer, fiber::Fiber, polarization_basis::CircularPolarization, power::Real, stark_shift::Real)
+function fiber_potential(x::Real, y::Real, z::Real, f::Integer, fiber::Fiber, polarization::Polarization, power::Real, stark_shift::Real)
     ρ = sqrt(x^2 + y^2)
     ϕ = atan(y, x)
-    e_x, e_y, e_z = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, l, f, fiber, polarization_basis, power)
+    e_x, e_y, e_z = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, f, fiber, polarization, power)
     e_abs2 = abs2(e_x) + abs2(e_y) + abs2(e_z)
     return stark_shift * e_abs2
 end
@@ -69,68 +109,110 @@ Compute the full potential at position (`x`, `y`, `z`) of a circularly polarized
 along the z-axis and a dipole tweezer trap consisting of two beam parallel to the gaussian
 beams, one along the x-axis and one along the y-axis.
 """
-function full_potential(x::Real, y::Real, z::Real, waist::Real, power_trap::Real, wavelength::Real, stark_shift_trap::Real, l::Integer, f::Integer, fiber::Fiber, polarization_basis::CircularPolarization, power_fiber::Real, stark_shift_fiber::Real)
-    V_trap = tweezer_trap_potential(x, y, z, waist, power_trap, wavelength, stark_shift_trap)
-    V_fiber = fiber_potential(x, y, z, l, f, fiber, polarization_basis, power_fiber, stark_shift_fiber)
-    V_total = V_trap + V_fiber
-    if V_total > 0
-        return 0.0
-    else
-        return V_total
-    end
+function full_potential(x::Real, y::Real, z::Real, tweezer_trap::CrossedTweezerTrap, f::Integer, fiber::Fiber, polarization::Polarization, power_fiber::Real, stark_shift_fiber::Real)
+    V_trap = tweezer_trap_potential(x, y, z, tweezer_trap)
+    V_fiber = fiber_potential(x, y, z, f, fiber, polarization, power_fiber, stark_shift_fiber)
+    return V_trap + V_fiber
 end
 
-function atomic_propability_distribution(x::Real, y::Real, z::Real, waist::Real, power_trap::Real, wavelength_trap::Real, stark_shift_trap::Real, l::Integer, f::Integer, fiber::Fiber, polarization_basis::PolarizationBasis, power_fiber::Real, stark_shift_fiber::Real, temperature::Real)
+function atomic_propability_distribution(x::Real, y::Real, z::Real, tweezer_trap::CrossedTweezerTrap, f::Integer, fiber::Fiber, polarization::Polarization, power_fiber::Real, stark_shift_fiber::Real, temperature::Real)
     ρ = sqrt(x^2 + y^2)
     if ρ < radius(fiber)
         return 0.0
     end
     
-    V_total = full_potential(x, y, z, waist, power_trap, wavelength_trap, stark_shift_trap, l, f, fiber, polarization_basis, power_fiber, stark_shift_fiber)
-
-    if -V_total / temperature < 1e-10
+    V_total = full_potential(x, y, z, tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber)
+    if V_total > 0.0
         return 0.0
     end
+
     P, _ = gamma_inc(3 / 2, -V_total / temperature)
-    propability = 2 / sqrt(π) * P * exp(-V_total / temperature)
-    #propability = (sqrt(π) / 2 - gamma(3 / 2, -V_total / temperature)) * exp(-V_total / temperature)
+    propability = P * exp(-V_total / temperature)
 
-    if propability < 0.0
-        return 0.0
-    else
-        return propability
-    end
+    return propability
 end
 
-function atomic_propability_normalization_constant(waist, power_trap, wavelength_trap, stark_shift_trap, l, f, fiber, polarization_basis, power_fiber, stark_shift_fiber, temperature)
-    #domain = (-Inf, Inf)
-    #domain = ([-Inf, -Inf], [Inf, Inf])
-    domain = ([-Inf, -Inf, -Inf], [Inf, Inf, Inf])
-    #domain = ([-700.0, -700.0], [700.0, 700.0])
-    p = waist, power_trap, wavelength_trap, stark_shift_trap, l, f, fiber, polarization_basis, power_fiber, stark_shift_fiber, temperature
+function atomic_propability_distribution_approximation(x::Real, y::Real, z::Real, tweezer_trap::CrossedTweezerTrap, f::Integer, fiber::Fiber, polarization::Polarization, power_fiber::Real, stark_shift_fiber::Real, temperature::Real)
+    ρ = sqrt(x^2 + y^2)
+    if ρ < radius(fiber)
+        return 0.0
+    end
+    
+    V_total = full_potential(x, y, z, tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber)    
+    propability = exp(-V_total / temperature)
+
+    return propability
+end
+
+function atomic_propability_normalization_constant(tweezer_trap::CrossedTweezerTrap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature)
+    L = 2 * waist
+    domain = ([-L, -L, -L], [L, L, L])
+    p = tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature
     prob = IntegralProblem(atomic_propability_normalization_constant_integrand, domain, p)
-    sol = solve(prob, HCubatureJL())
+    sol = solve(prob, CubaDivonne())
+    return sol.u
+end
+
+function atomic_propability_normalization_constant_approximation(tweezer_trap::CrossedTweezerTrap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature)
+    L = 2 * waist
+    domain = ([-L, -L, -L], [L, L, L])
+    p = tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature
+    prob = IntegralProblem(atomic_propability_normalization_constant_approximation_integrand, domain, p)
+    sol = solve(prob, CubaDivonne())
     return sol.u
 end
 
 function atomic_propability_normalization_constant_integrand(u, p)
-    waist, power_trap, wavelength_trap, stark_shift_trap, l, f, fiber, polarization_basis, power_fiber, stark_shift_fiber, temperature = p
-    return atomic_propability_distribution(u[1], u[2], u[3], waist, power_trap, wavelength_trap, stark_shift_trap, l, f, fiber, polarization_basis, power_fiber, stark_shift_fiber, temperature)
+    tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature = p
+    return atomic_propability_distribution(u[1], u[2], u[3], tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature)
 end
 
-function lower_incomplete_gamma_three_halfs(x::Real)
-    coefficients = (0.6666666666666666, 0.4, 0.14285714285714285, 0.037037037037037035, 0.007575757575757576, 0.0012820512820512823, 0.00018518518518518523, 2.3342670401493936e-5, 2.610693400167085e-6, 2.6245065927605617e-7, 2.3962886281726868e-8, 2.004168670835338e-9, 1.5464264435457854e-10, 1.1075202646083875e-11, 7.400481030793372e-13, 4.6346446859514054e-14, 2.7311299042213638e-15, 1.5197066239705522e-16, 8.009849727480118e-18, 4.0100659739630883e-19, 1.9117756387498445e-20, 8.699084917062786e-22, 3.785868677638543e-23, 1.5788449676043614e-24, 6.320539494494584e-26, 2.4328114280696132e-27, 9.01671368445381e-29, 3.2223473206300165e-30, 1.111826860023674e-31, 3.708184552933678e-33, 1.196821469465367e-34, 3.7419232047800556e-36, 1.1344450014491774e-37, 3.338068295875928e-39, 9.541288832453976e-41, 2.6513953311320248e-42, 7.168587376764363e-44, 1.8871325140657327e-45, 4.840413177317169e-47, 1.2104863596329736e-48, 2.953295034044304e-50, 7.033672534452718e-52, 1.636185455469297e-53, 3.719574983690327e-55, 8.267786552158819e-57, 1.797774375738238e-58, 3.8259271611820626e-60, 7.972429925691948e-62, 1.6273689031820686e-63, 3.2553954620130286e-65, 6.384367799287687e-67, 1.227992312468033e-68, 2.3173830483311193e-70, 4.2921929404782716e-72, 7.80528913099986e-74, 1.3940258946757591e-75, 2.446039225129826e-77, 4.2179413838645973e-79, 7.150088987426222e-81, 1.1918484234538737e-82, 1.9541146238200367e-84, 3.1522111308834694e-86, 5.0041451785678645e-88, 7.819938940299234e-90, 1.2032110249267666e-91, 1.823257886239519e-93, 2.7215858459018636e-95, 4.002768157716e-97, 5.801727016579475e-99, 8.289033357020733e-101, 1.1675861172227007e-102, 1.6218049029902495e-104, 2.221860458556181e-106, 3.0027901756712206e-108, 4.004078541032861e-110, 5.268983526762196e-112, 6.843416634928829e-114, 8.774336822019757e-116, 1.1107651032552024e-117, 1.388565543026788e-119, 1.7144099112523994e-121, 2.0909002284634575e-123, 2.5193408623957243e-125, 2.99942912967909e-127, 3.528985818127027e-129, 4.1037509343741696e-131, 4.717268515925125e-133, 5.3608805135846284e-135, 6.023843644644992e-137, 6.6935750970976074e-139, 7.356023634333133e-141, 7.99615280714561e-143, 8.598513539420703e-145, 9.147875245330099e-147, 9.629878697601586e-149, 1.0031670745797126e-150, 1.0342481057365627e-152, 1.0554104381109934e-154, 1.0661258143157917e-156, 1.0661793911696193e-158, 1.0556751607147463e-160)
-    return x^(3 / 2) * evalpoly(-x, coefficients)
+function atomic_propability_normalization_constant_approximation_integrand(u, p)
+    tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature = p
+    return atomic_propability_distribution_approximation(u[1], u[2], u[3], tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature)
 end
 
-function coeffs(a)
-    b = a + 1
-    c = zeros(101)
-    c[1] = inv(a)
-    c[2] = inv(b)
-    for s = 2:100
-        c[s + 1] = c[s] * (a + s - 1) * inv(s * (b + s - 1))
+function maximum_within_box(f, r0, L, p; algorithm=LBFGS())
+    lower = fill(-L, 3)
+    upper = fill(L, 3)
+    opt = optimize(r -> -f(r, p), lower, upper, r0, Fminbox(algorithm))
+    x_max = Optim.minimizer(opt)
+    return f(x_max, p)
+end
+
+function rejection_sample(f, L, N, p; r0=zeros(3), algorithm=LBFGS())
+    fmax = maximum_within_box(f, r0, L, p, algorithm=algorithm)
+    samples = zeros(3, N)
+    count = 0
+    while count < N
+        r = (rand(3) .- 0.5) .* (2L)
+        if rand() <= f(r, p) / fmax
+            count += 1
+            samples[:, count] = r
+        end
     end
+    return samples
+end
+
+function atomic_cloud_full_potential(N, tweezer_trap::CrossedTweezerTrap, ϕ₀, f::Integer, fiber::Fiber, polarization_basis::LinearPolarization, power_fiber::Real, stark_shift_fiber::Real, temperature::Real)
+    p = (tweezer_trap, ϕ₀, f, fiber, polarization_basis, power_fiber, stark_shift_fiber, temperature)
+    f_unnorm(r, p) = OpticalFibers.atomic_propability_distribution(r..., p...)
     
-    return c
+    L = 2 * waist_trap
+    a = fiber.radius
+    x0 = [2a, 2a, 0.0]
+    return rejection_sample(f_unnorm, L, N, p, r0=x0)
+end
+
+function atomic_propability_distribution_wrap(r, p)
+    tweezer_trap, ϕ₀_control, f, fiber_control, polarization_basis, P_control, ζ_control_ground, temperature = p
+    return OpticalFibers.atomic_propability_distribution(r..., tweezer_trap, ϕ₀_control, f, fiber_control, polarization_basis, P_control, ζ_control_ground, temperature)
+end
+
+function atom_number(peak_density_μm, tweezer_trap::CrossedTweezerTrap, f, fiber_control, polarization, P_control, ζ_control_ground, temperature)
+    a = fiber_control.radius
+    p = w_trap, P_trap, λ_trap, ζ_trap_ground, f, fiber_control, polarization, P_control, ζ_control_ground, temperature
+    normalization_constant = OpticalFibers.atomic_propability_normalization_constant(tweezer_trap, f, fiber_control, polarization, P_control, ζ_control_ground, temperature)
+    P_M = OpticalFibers.maximum_within_box(atomic_propability_distribution_wrap, [2a, 2a, 2a], 2 * w_trap, p; algorithm=LBFGS()) / normalization_constant
+    return round(Int, peak_density_μm / P_M)
 end
