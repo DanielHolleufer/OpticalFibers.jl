@@ -1,23 +1,3 @@
-#= function susceptibility(x, y, z, Δ_probe, Δ_control, d_probe, d_control, Γ_probe, Γ_control,
-                        polarization_probe, polarization_control, std_x, std_y, std_z,
-                        fiber, exclusion_zone, power, normalization_constant)
-    n = 1 / normalization_constant * gaussian_cloud_distribution(x, y, z, std_x, std_y, std_z, fiber, exclusion_zone)
-    ρ = sqrt(x^2 + y^2)
-    ϕ = atan(y, x)
-    Ex_probe, Ey_probe, Ez_probe = electric_radiation_field_cartesian_components(ρ, ϕ, 1, fiber, polarization_probe)
-    intensity_probe = abs2(Ex_probe) + abs2(Ey_probe) + abs2(Ez_probe)
-    de = abs2(conj(d_probe[1]) * Ex_probe + conj(d_probe[2]) * Ey_probe + conj(d_probe[3]) * Ez_probe) / intensity_probe
-
-    Ex_control, Ey_control, Ez_control = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, -1, fiber, polarization_control, power)
-    Ω = conj(d_control[1]) * Ex_control + conj(d_control[2]) * Ey_control + conj(d_control[3]) * Ez_control
-    return -im * sum(abs2, d) * n / (im * Δe - Γp / 2 + abs2(Ω) / (im * (Δe + Δr) - Γc / 2))
-end
-
-function susceptibility_plane_integrand(u, p)
-    z, Δe, Δr, d, Γp, Γc, std_x, std_y, std_z, fiber, exclusion_zone, f, polarization, power, N = p
-    return susceptibility(u[1], u[2], z, Δe, Δr, d, Γp, Γc, std_x, std_y, std_z, fiber, exclusion_zone, f, polarization, power, N)
-end =#
-
 function continuous_propagation(Δ_probe, Δ_control, d_probe, d_control, Γ_probe, Γ_control,
                                 polarization_probe, polarization_control, std_x, std_y,
                                 std_z, fiber_probe, exclusion_zone, power,

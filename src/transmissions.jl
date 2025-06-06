@@ -150,3 +150,16 @@ function fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
         t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M - Δes[i] * I) \ gs)
     end
 end
+
+function full_width_half_minimum(xs, ys)
+    length(xs) == length(ys) || throw(DimensionMismatch("The x and y arrays must have the same length."))
+
+    y_min, y_min_index = findmin(ys)
+    y_max = maximum(ys)
+
+    half_min = (y_max + y_min) / 2
+    half_min_lower_index = argmin(abs.(ys[1:y_min_index] .- half_min))
+    half_min_upper_index = argmin(abs.(ys[y_min_index:end] .- half_min)) + y_min_index - 1
+
+    return half_min_lower_index, half_min_upper_index
+end

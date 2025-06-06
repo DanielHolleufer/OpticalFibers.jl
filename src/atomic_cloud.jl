@@ -1,41 +1,117 @@
-function gaussian_cloud_distribution(x, y, z, std_x, std_y, std_z, fiber, exclusion_zone = 0.0)
-    if sqrt(x^2 + y^2) ≤ fiber.radius + exclusion_zone
-        return 0.0
-    else
-        return exp(-x^2 / (2 * std_x^2) - y^2 / (2 * std_y^2) - z^2 / (2 * std_z^2))
+function box_maximization(f, r0, lower, upper, p; algorithm=LBFGS())
+    opt = optimize(r -> -f(r, p), lower, upper, r0, Fminbox(algorithm))
+    x_max = Optim.minimizer(opt)
+    return f(x_max, p)
+end
+
+function box_rejection_sampling(f, lower, upper, N, p; r0=zeros(3), algorithm=LBFGS())
+    fmax = box_maximization(f, r0, lower, upper, p, algorithm=algorithm)
+    samples = zeros(3, N)
+    count = 0
+    while count < N
+        r = rand(3) .* (upper - lower) + lower
+        if rand() <= f(r, p) / fmax
+            count += 1
+            samples[:, count] = r
+        end
+    end
+    return samples
+end
+
+struct GaussianCloud
+    σ_x::Float64
+    σ_y::Float64
+    σ_z::Float64
+    peak_density::Float64
+    fiber_radius::Float64
+    exclusion_zone::Float64
+    atoms::Int
+    normalization_constant::Float64
+    function GaussianCloud(σ_x::Float64, σ_y::Float64, σ_z::Float64, peak_density::Float64, 
+                           fiber_radius::Float64, exclusion_zone::Float64)
+        σ_x < 0 && throw(DomainError(σ_x, "Standard deviation σ_x must be non-negative."))
+        σ_y < 0 && throw(DomainError(σ_y, "Standard deviation σ_y must be non-negative."))
+        σ_z < 0 && throw(DomainError(σ_z, "Standard deviation σ_z must be non-negative."))
+        peak_density < 0 && throw(DomainError(peak_density, "Peak density must be non-negative."))
+        fiber_radius < 0 && throw(DomainError(fiber_radius, "Fiber radius must be non-negative."))
+        exclusion_zone < 0 && throw(DomainError(exclusion_zone, "Exclusion zone must be non-negative."))
+
+        p = σ_x, σ_y, σ_z, fiber_radius, exclusion_zone
+        normalization_constant = gaussian_cloud_normalization_constant(p)
+        lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
+        upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
+        P_M = box_maximization(gaussian_cloud_distribution_unnormalized,
+                               [fiber_radius, 0.0, 0.0], lower, upper, p; algorithm=LBFGS())
+        atoms = round(Int, normalization_constant * peak_density / P_M)
+
+        return new(σ_x, σ_y, σ_z, peak_density, fiber_radius, exclusion_zone, atoms,
+                   normalization_constant)
     end
 end
 
-function gaussian_cloud_normalization_constant(std_x, std_y, std_z, fiber, exclusion_zone = 0.0)
-    p = std_x, std_y, std_z, fiber, exclusion_zone
-    domain = ([-5 * std_x, -5 * std_y, -5 * std_z], [5 * std_x, 5 * std_y, 5 * std_z])
-    prob = IntegralProblem(gaussian_cloud_normalization_constant_integrand, domain, p)
+function GaussianCloud(σ_x::Real, σ_y::Real, σ_z::Real, peak_density::Real,
+                       fiber_radius::Real, exclusion_zone::Real = 0.0)
+    return GaussianCloud(Float64(σ_x), Float64(σ_y), Float64(σ_z), Float64(peak_density),
+                         Float64(fiber_radius), Float64(exclusion_zone))
+end
+
+function GaussianCloud(σ_x::Real, σ_y::Real, σ_z::Real, peak_density::Real, fiber::Fiber,
+                       exclusion_zone::Real = 0.0)
+    return GaussianCloud(σ_x, σ_y, σ_z, peak_density, fiber.radius, exclusion_zone)
+end
+
+function Base.show(io::IO, cloud::GaussianCloud)
+    println(io, "Gaussian cloud parameters:")
+    println(io, "σ_x = $(cloud.σ_x)")
+    println(io, "σ_y = $(cloud.σ_y)")
+    println(io, "σ_z = $(cloud.σ_z)")
+    println(io, "Peak density = $(cloud.peak_density)")
+    println(io, "Fiber radius = $(cloud.fiber_radius)")
+    println(io, "Exclusion zone = $(cloud.exclusion_zone)")
+    print(io, "Number of atoms = $(cloud.atoms)")
+end
+
+function gaussian_cloud_distribution_unnormalized(u, p)
+    x, y, z = u
+    σ_x, σ_y, σ_z, fiber_radius, exclusion_zone = p
+    if sqrt(x^2 + y^2) ≤ fiber_radius + exclusion_zone
+        return 0.0
+    else
+        return exp(-x^2 / (2 * σ_x^2) - y^2 / (2 * σ_y^2) - z^2 / (2 * σ_z^2))
+    end
+end
+
+function gaussian_cloud_normalization_constant(p)
+    σ_x, σ_y, σ_z, _, _ = p
+    domain = ([-5 * σ_x, -5 * σ_y, -5 * σ_z], [5 * σ_x, 5 * σ_y, 5 * σ_z])
+    prob = IntegralProblem(gaussian_cloud_distribution_unnormalized, domain, p)
     sol = solve(prob, CubaDivonne())
     return sol.u
 end
 
-function gaussian_cloud_normalization_constant_integrand(u, p)
-    std_x, std_y, std_z, fiber, exclusion_zone = p
-    return gaussian_cloud_distribution(u[1], u[2], u[3], std_x, std_y, std_z, fiber, exclusion_zone)
-end
-
-function gaussian_atomic_cloud(N, std_x, std_y, std_z, fiber, exclusion_zone = 0.0)
-    distribution = MvNormal([std_x, std_y, std_z])
-    r = zeros(3, N)
-    for i in 1:N
-        while sqrt(r[1, i]^2 + r[2, i]^2) ≤ fiber.radius + exclusion_zone
-            r[:, i] = rand(distribution)
-        end
+function atomic_density_distribution(r, cloud::GaussianCloud)
+    x, y, z = r
+    σ_x, σ_y, σ_z = cloud.σ_x, cloud.σ_y, cloud.σ_z
+    fiber_radius = cloud.fiber_radius
+    exclusion_zone = cloud.exclusion_zone
+    n = cloud.normalization_constant
+    if sqrt(x^2 + y^2) ≤ fiber_radius + exclusion_zone
+        return 0.0
+    else
+        return n * exp(-x^2 / (2 * σ_x^2) - y^2 / (2 * σ_y^2) - z^2 / (2 * σ_z^2))
     end
-    return r
 end
 
-function atom_number_gaussian(peak_density_μm, fiber_control, std_x, std_y, std_z, exclusion_zone)
-    a = fiber_control.radius
-    p = std_x, std_y, std_z, fiber_control, exclusion_zone
-    normalization_constant = OpticalFibers.gaussian_cloud_normalization_constant(std_x, std_y, std_z, fiber_control, exclusion_zone)
-    P_M = OpticalFibers.maximum_within_box(gaussian_cloud_normalization_constant_integrand, [2a, 2a, 2a], 5 * std_x, p; algorithm=LBFGS()) / normalization_constant
-    return round(Int, peak_density_μm / P_M)
+function gaussian_atomic_cloud(cloud::GaussianCloud)
+    N = cloud.atoms
+    σ_x, σ_y, σ_z = cloud.σ_x, cloud.σ_y, cloud.σ_z
+    lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
+    upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
+    
+    samples = box_rejection_sampling(atomic_density_distribution, lower, upper, N, cloud;
+                                     r0=zeros(3), algorithm=LBFGS())
+    
+    return samples
 end
 
 struct CrossedTweezerTrap
@@ -171,28 +247,6 @@ end
 function atomic_propability_normalization_constant_approximation_integrand(u, p)
     tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature = p
     return atomic_propability_distribution_approximation(u[1], u[2], u[3], tweezer_trap, f, fiber, polarization, power_fiber, stark_shift_fiber, temperature)
-end
-
-function maximum_within_box(f, r0, L, p; algorithm=LBFGS())
-    lower = fill(-L, 3)
-    upper = fill(L, 3)
-    opt = optimize(r -> -f(r, p), lower, upper, r0, Fminbox(algorithm))
-    x_max = Optim.minimizer(opt)
-    return f(x_max, p)
-end
-
-function rejection_sample(f, L, N, p; r0=zeros(3), algorithm=LBFGS())
-    fmax = maximum_within_box(f, r0, L, p, algorithm=algorithm)
-    samples = zeros(3, N)
-    count = 0
-    while count < N
-        r = (rand(3) .- 0.5) .* (2L)
-        if rand() <= f(r, p) / fmax
-            count += 1
-            samples[:, count] = r
-        end
-    end
-    return samples
 end
 
 function atomic_cloud_full_potential(N, tweezer_trap::CrossedTweezerTrap, ϕ₀, f::Integer, fiber::Fiber, polarization_basis::LinearPolarization, power_fiber::Real, stark_shift_fiber::Real, temperature::Real)

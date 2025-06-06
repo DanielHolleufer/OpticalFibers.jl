@@ -89,7 +89,7 @@ function Base.show(io::IO, coupling_strengths::GuidedCouplingStrengths)
     println(io, "Forward counterclockwise  (l =  1, f =  1): $(coupling_strengths.forward_counterclockwise)")
     println(io, "Forward clockwise         (l = -1, f =  1): $(coupling_strengths.forward_clockwise)")
     println(io, "Backward counterclockwise (l =  1, f = -1): $(coupling_strengths.backward_counterclockwise)")
-    print(io, "Backward counterclockwise (l = -1, f = -1): $(coupling_strengths.backward_clockwise)")
+    print(io,   "Backward counterclockwise (l = -1, f = -1): $(coupling_strengths.backward_clockwise)")
 end
 
 function guided_coupling_strengths(r, d::Vector{<:Number}, fiber::Fiber)

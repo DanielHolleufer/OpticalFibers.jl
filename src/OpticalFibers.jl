@@ -16,9 +16,9 @@ export vacuum_coefficients, guided_mode_coefficients, guided_mode_directional_co
     radiation_mode_directional_coefficients
 export single_two_level_transmission, single_three_level_transmission, optical_depth,
     coupling_strengths, transmission_three_level, transmission_two_level
-export CrossedTweezerTrap, gaussian_atomic_cloud, tweezer_trap_intensity,
-    tweezer_trap_potential, fiber_potential, full_potential, gaussian_beam_intensity,
-    atom_number
+export GaussianCloud, atomic_density_distribution, gaussian_atomic_cloud,
+    CrossedTweezerTrap, tweezer_trap_intensity, tweezer_trap_potential, fiber_potential,
+    full_potential, gaussian_beam_intensity, atom_number
 export continuous_propagation
 
 include("materials.jl")
@@ -34,7 +34,6 @@ include("continuous_propagation.jl")
 using Bessels
 using Cuba
 using DifferentialEquations
-using Distributions
 using Integrals
 using LinearAlgebra
 using NonlinearSolve

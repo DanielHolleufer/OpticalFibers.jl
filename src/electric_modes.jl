@@ -83,7 +83,9 @@ function electric_guided_mode_cylindrical_base_components(ρ::Real, fiber::Fiber
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real, f::Integer, fiber::Fiber, polarization::LinearPolarization)
+function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real, f::Integer,
+                                                             fiber::Fiber,
+                                                             polarization::LinearPolarization)
     f ∈ (-1, 1) || throw(DomainError(f, "Direction of propagation index must be either +1 or -1."))
 
     ϕ₀ = polarization.ϕ₀
@@ -92,7 +94,9 @@ function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real,
     return sqrt(2) * e_ρ * cos(ϕ - ϕ₀), sqrt(2) * im * e_ϕ * sin(ϕ - ϕ₀), sqrt(2) * f * e_z * cos(ϕ - ϕ₀)
 end
 
-function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real, f::Integer, fiber::Fiber, polarization::CircularPolarization)
+function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real, f::Integer,
+                                                             fiber::Fiber,
+                                                             polarization::CircularPolarization)
     f ∈ (-1, 1) || throw(DomainError(f, "Direction of propagation index must be either +1 or -1."))
 
     l = polarization.l
@@ -101,7 +105,9 @@ function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real,
     return e_ρ * exp(im * l * ϕ), l * e_ϕ * exp(im * l * ϕ), f * e_z * exp(im * l * ϕ)
 end
 
-function electric_guided_mode_profile_cartesian_components(ρ::Real, ϕ::Real, f::Integer, fiber::Fiber, polarization::Polarization)
+function electric_guided_mode_profile_cartesian_components(ρ::Real, ϕ::Real, f::Integer,
+                                                           fiber::Fiber,
+                                                           polarization::Polarization)
     e_ρ, e_ϕ, e_z = electric_guided_mode_profile_cylindrical_components(ρ, ϕ, f, fiber, polarization)
 
     e_x = e_ρ * cos(ϕ) - e_ϕ * sin(ϕ)
@@ -116,7 +122,9 @@ end
 Compute the cartesian components of a guided electric field at position ``(ρ, ϕ, z)`` and
 time ``t`` with the given ``power``.
 """
-function electric_guided_field_cartesian_components(ρ::Real, ϕ::Real, z::Real, t::Real, f::Integer, fiber::Fiber, polarization::Polarization, power::Real)
+function electric_guided_field_cartesian_components(ρ::Real, ϕ::Real, z::Real, t::Real,
+                                                    f::Integer, fiber::Fiber,
+                                                    polarization::Polarization, power::Real)
     ω = frequency(fiber)
     β = propagation_constant(fiber)
 
@@ -133,11 +141,14 @@ end
 Compute the guided electric field vector at position ``(ρ, ϕ, z)`` and time ``t`` with the
 given ``power``.
 """
-function electric_guided_field_cartesian_vector(ρ::Real, ϕ::Real, z::Real, t::Real, f::Integer, fiber::Fiber, polarization::Polarization, power::Real)
+function electric_guided_field_cartesian_vector(ρ::Real, ϕ::Real, z::Real, t::Real,
+                                                f::Integer, fiber::Fiber,
+                                                polarization::Polarization, power::Real)
     return collect(electric_guided_field_cartesian_components(ρ, ϕ, z, t, f, fiber, polarization, power))
 end
 
-function electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β, l::Integer, m::Integer, fiber)
+function electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β, l::Integer,
+                                                                      m::Integer, fiber)
     a = fiber.radius
     n = fiber.refractive_index
     h = sqrt(n^2 * ω^2 - β^2)
