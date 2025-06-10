@@ -1,8 +1,6 @@
 module OpticalFibers
 
 export Material
-export StarkShifts, ytterbium_stark_shift_1070nm_natural_units, 
-    ytterbium_stark_shift_395nm_natural_units
 export Fiber, radius, wavelength, frequency, material, refractive_index,
     propagation_constant, propagation_constant_derivative, normalized_frequency,
     effective_refractive_index
@@ -11,14 +9,17 @@ export Polarization, LinearPolarization, CircularPolarization,
     electric_guided_mode_profile_cylindrical_components,
     electric_guided_mode_profile_cartesian_components,
     electric_guided_field_cartesian_components, electric_guided_field_cartesian_vector
+export StarkShifts, ytterbium_stark_shift_1070nm_natural_units, 
+    ytterbium_stark_shift_395nm_natural_units
+export GaussianCloud, atomic_density_distribution, gaussian_atomic_cloud,
+    CrossedTweezerTrap, tweezer_trap_intensity, tweezer_trap_potential, fiber_potential,
+    full_potential, gaussian_beam_intensity, atom_number
 export vacuum_coefficients, guided_mode_coefficients, guided_mode_directional_coefficients,
     radiation_mode_coefficients, radiation_mode_decay_coefficients,
     radiation_mode_directional_coefficients
 export single_two_level_transmission, single_three_level_transmission, optical_depth,
-    coupling_strengths, transmission_three_level, transmission_two_level
-export GaussianCloud, atomic_density_distribution, gaussian_atomic_cloud,
-    CrossedTweezerTrap, tweezer_trap_intensity, tweezer_trap_potential, fiber_potential,
-    full_potential, gaussian_beam_intensity, atom_number
+    coupling_strengths, transmission_three_level, transmission_two_level,
+    probe_detuning_range
 export continuous_propagation
 
 include("materials.jl")

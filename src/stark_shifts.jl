@@ -4,6 +4,10 @@ struct StarkShifts
     rydberg_state::Float64
 end
 
+function StarkShifts(ground_state::Real, excited_state::Real, rydberg_state::Real)
+    return StarkShifts(Float64(ground_state), Float64(excited_state), Float64(rydberg_state))
+end
+
 function Base.show(io::IO, stark_shift::StarkShifts)
     println(io, "Stark shifts in natural units:")
     println(io, "Ground state:  $(stark_shift.ground_state)")

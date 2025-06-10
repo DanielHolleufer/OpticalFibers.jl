@@ -25,7 +25,7 @@ struct GaussianCloud
     peak_density::Float64
     fiber_radius::Float64
     exclusion_zone::Float64
-    atoms::Int
+    number_of_atoms::Int
     normalization_constant::Float64
     function GaussianCloud(σ_x::Float64, σ_y::Float64, σ_z::Float64, peak_density::Float64, 
                            fiber_radius::Float64, exclusion_zone::Float64)
@@ -42,10 +42,10 @@ struct GaussianCloud
         upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
         P_M = box_maximization(gaussian_cloud_distribution_unnormalized,
                                [fiber_radius, 0.0, 0.0], lower, upper, p; algorithm=LBFGS())
-        atoms = round(Int, normalization_constant * peak_density / P_M)
+        number_of_atoms = round(Int, normalization_constant * peak_density / P_M)
 
-        return new(σ_x, σ_y, σ_z, peak_density, fiber_radius, exclusion_zone, atoms,
-                   normalization_constant)
+        return new(σ_x, σ_y, σ_z, peak_density, fiber_radius, exclusion_zone,
+                   number_of_atoms, normalization_constant)
     end
 end
 
@@ -68,7 +68,7 @@ function Base.show(io::IO, cloud::GaussianCloud)
     println(io, "Peak density = $(cloud.peak_density)")
     println(io, "Fiber radius = $(cloud.fiber_radius)")
     println(io, "Exclusion zone = $(cloud.exclusion_zone)")
-    print(io, "Number of atoms = $(cloud.atoms)")
+    print(io, "Number of atoms = $(cloud.number_of_atoms)")
 end
 
 function gaussian_cloud_distribution_unnormalized(u, p)
@@ -89,8 +89,7 @@ function gaussian_cloud_normalization_constant(p)
     return sol.u
 end
 
-function atomic_density_distribution(r, cloud::GaussianCloud)
-    x, y, z = r
+function atomic_density_distribution(x, y, z, cloud::GaussianCloud)
     σ_x, σ_y, σ_z = cloud.σ_x, cloud.σ_y, cloud.σ_z
     fiber_radius = cloud.fiber_radius
     exclusion_zone = cloud.exclusion_zone
@@ -98,8 +97,13 @@ function atomic_density_distribution(r, cloud::GaussianCloud)
     if sqrt(x^2 + y^2) ≤ fiber_radius + exclusion_zone
         return 0.0
     else
-        return n * exp(-x^2 / (2 * σ_x^2) - y^2 / (2 * σ_y^2) - z^2 / (2 * σ_z^2))
+        return inv(n) * exp(-x^2 / (2 * σ_x^2) - y^2 / (2 * σ_y^2) - z^2 / (2 * σ_z^2))
     end
+end
+
+function atomic_density_distribution(r, cloud::GaussianCloud)
+    x, y, z = r
+    atomic_density_distribution(x, y, z, cloud::GaussianCloud)
 end
 
 function gaussian_atomic_cloud(cloud::GaussianCloud)
@@ -119,6 +123,20 @@ struct CrossedTweezerTrap
     power_per_beam::Float64
     wavelength::Float64
     stark_shifts::StarkShifts
+end
+
+function CrossedTweezerTrap(waist::Real, power_per_beam::Real, wavelength::Real,
+                            stark_shifts::StarkShifts)
+    return CrossedTweezerTrap(Float64(waist), Float64(power_per_beam), Float64(wavelength), 
+                              stark_shifts)
+end
+
+function Base.show(io::IO, trap::CrossedTweezerTrap)
+    println(io, "Crossed beamed tweezer trap parameters:")
+    println(io, "Waist = $(trap.waist)")
+    println(io, "Power per beam = $(trap.power_per_beam)")
+    println(io, "Wavelength = $(trap.wavelength)")
+    print(io, trap.stark_shifts)
 end
 
 """
