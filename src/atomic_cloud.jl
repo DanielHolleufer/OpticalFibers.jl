@@ -107,7 +107,7 @@ function atomic_density_distribution(x, y, z, cloud::GaussianCloud)
 end
 
 function atomic_cloud(cloud::GaussianCloud)
-    N = cloud.atoms
+    N = cloud.number_of_atoms
     σ_x, σ_y, σ_z = cloud.σ_x, cloud.σ_y, cloud.σ_z
     lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
     upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
