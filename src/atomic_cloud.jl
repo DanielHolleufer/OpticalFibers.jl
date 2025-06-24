@@ -109,6 +109,8 @@ end
 function atomic_cloud(cloud::GaussianCloud)
     N = cloud.number_of_atoms
     σ_x, σ_y, σ_z = cloud.σ_x, cloud.σ_y, cloud.σ_z
+    fiber_radius = cloud.fiber_radius
+    exclusion_zone = cloud.exclusion_zone
     lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
     upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
     
