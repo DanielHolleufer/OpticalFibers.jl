@@ -187,9 +187,9 @@ function probe_detuning_range(Δ_control, d_probe, d_control, Γ_probe, Γ_contr
     Δ_min = result_minimum.minimizer
 
     dark_state_transmission = _transmission(-Δ_control)
-    fwhm = (result_minimum.minimum + dark_state_transmission) / 2
+    half_minimum = (result_minimum.minimum + dark_state_transmission) / 2
 
-    result_fwhm_left = optimize(Δ_probe -> abs(_transmission(Δ_probe) - fwhm),
+    result_fwhm_left = optimize(Δ_probe -> abs(_transmission(Δ_probe) - half_minimum),
                                 -Δ_control - Γ_probe, Δ_min)
     Δ_fwhm_left = result_fwhm_left.minimizer
 
@@ -198,6 +198,31 @@ function probe_detuning_range(Δ_control, d_probe, d_control, Γ_probe, Γ_contr
     
     lower_bound = Δ_min - left_extension_factor * (Δ_min - Δ_fwhm_left)
     upper_bound = -Δ_control + right_extension_factor * (-Δ_control - Δ_min)
+
+    return LinRange(lower_bound, upper_bound, resolution)
+end
+
+function probe_detuning_range(Δ_control, d_probe, Γ_probe, Γ_control,
+                              polarization_probe, fiber_probe::Fiber,
+                              rabi_frequency, z_span, cloud::GaussianCloud,
+                              resolution::Int)
+    _transmission(Δ_probe) = abs2(continuous_propagation(Δ_probe, Δ_control, d_probe,
+                                                         Γ_probe, Γ_control,
+                                                         polarization_probe, fiber_probe, 
+                                                         rabi_frequency, z_span, cloud))
+    result_minimum = optimize(_transmission, -Δ_control - rabi_frequency, -Δ_control)
+    Δ_min = result_minimum.minimizer
+
+    half_minimum = (result_minimum.minimum + 1.0) / 2
+    result_fwhm_left = optimize(Δ_probe -> abs(_transmission(Δ_probe) - half_minimum),
+                                Δ_min - 2 * rabi_frequency, Δ_min)
+    Δ_fwhm_left = result_fwhm_left.minimizer
+
+    left_extension_factor = 3.0
+    right_extension_factor = 3.0
+    
+    lower_bound = Δ_min - left_extension_factor * (Δ_min - Δ_fwhm_left)
+    upper_bound = Δ_min + right_extension_factor * (Δ_min - Δ_fwhm_left)
 
     return LinRange(lower_bound, upper_bound, resolution)
 end

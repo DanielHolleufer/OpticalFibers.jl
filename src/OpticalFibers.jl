@@ -11,9 +11,10 @@ export Polarization, LinearPolarization, CircularPolarization,
     electric_guided_field_cartesian_components, electric_guided_field_cartesian_vector
 export StarkShifts, ytterbium_stark_shift_1070nm_natural_units, 
     ytterbium_stark_shift_395nm_natural_units
-export GaussianCloud, atomic_density_distribution, gaussian_atomic_cloud,
-    CrossedTweezerTrap, tweezer_trap_intensity, tweezer_trap_potential, fiber_potential,
-    full_potential, gaussian_beam_intensity, atom_number
+export AtomTrap, CrossedTweezerTrap, FiberTrap, CrossedTweezerFiberTrap, trap_intensity,
+    trap_potential
+export AtomicCloud, atomic_density_distribution, GaussianCloud, atomic_density_distribution,
+    atomic_cloud, CrossedTweezerFiberTrappedCloud
 export vacuum_coefficients, guided_mode_coefficients, guided_mode_directional_coefficients,
     radiation_mode_coefficients, radiation_mode_decay_coefficients,
     radiation_mode_directional_coefficients
@@ -26,6 +27,7 @@ include("materials.jl")
 include("fibers.jl")
 include("electric_modes.jl")
 include("stark_shifts.jl")
+include("atom_traps.jl")
 include("atomic_cloud.jl")
 include("propagation_constant.jl")
 include("master_equation_coefficients.jl")
