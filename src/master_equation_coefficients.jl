@@ -94,7 +94,7 @@ function guided_coupling_strengths(r, d::Vector{<:Number}, fiber::Fiber)
     de_mp = (d[1] * e_x_p + d[2] * e_y_p + d[3] * e_z_mp) * exp_minus_iβz
     de_mm = (d[1] * e_x_m + d[2] * e_y_m + d[3] * e_z_mm) * exp_minus_iβz
 
-    return GuidedCouplingStrengths(de_pp, de_pm, de_mp, de_mm)
+    return CouplingStrengths(de_pp, de_pm, de_mp, de_mm)
 end
 
 """
@@ -186,33 +186,6 @@ function guided_mode_directional_coefficients_fill!(J₊, Γ₊, J₋, Γ₋, r,
             Γ₋[j, i] = conj(Γ₋[i, j])
         end
     end
-end
-
-function radiative_coupling_strengths_plus_minu(β, p)
-    ρ, ϕ, z,  ω, d, m, fiber = p
-    e_ρ_p, e_y_ϕ_p, e_z_p, 
-    e_ρ_m, e_y_ϕ_m, e_z_m, 
-    e_ρ_p_r, e_y_ϕ_p_r, e_z_p_r,
-    e_ρ_m_r, e_y_ϕ_m_r, e_z_m_r = electric_radiation_mode_cylindrical_base_components_external_both_polarizations_and_reflected_two_atoms(ρ, ω, β, m, fiber)
-
-    cosϕ = cos(ϕ)
-    sinϕ = sin(ϕ)
-
-    e_x_p = e_ρ_p * cosϕ - e_y_ϕ_p * cosϕ
-    e_y_p = e_ρ_p * sinϕ + e_y_ϕ_p * sinϕ
-    e_x_m = e_ρ_m * cosϕ - e_y_ϕ_m * cosϕ
-    e_y_m = e_ρ_m * sinϕ + e_y_ϕ_m * sinϕ
-    e_x_p_r = e_ρ_p_r * cosϕ - e_y_ϕ_p_r * cosϕ
-    e_y_p_r = e_ρ_p_r * sinϕ + e_y_ϕ_p_r * sinϕ
-    e_x_m_r = e_ρ_m_r * cosϕ - e_y_ϕ_m_r * cosϕ
-    e_y_m_r = e_ρ_m_r * sinϕ + e_y_ϕ_m_r * sinϕ
-
-    de_p = (d[1] * e_x_p + d[2] * e_y_p + d[3] * e_z_p) * exp(im * (m * ϕ + β * z))
-    de_m = (d[1] * e_x_m + d[2] * e_y_m + d[3] * e_z_m) * exp(im * (m * ϕ + β * z))
-    de_p_r = (d[1] * e_x_p_r + d[2] * e_y_p_r + d[3] * e_z_p_r) * exp(im * (-m * ϕ + β * z))
-    de_m_r = (d[1] * e_x_m_r + d[2] * e_y_m_r + d[3] * e_z_m_r) * exp(im * (-m * ϕ + β * z))
-
-    return CouplingStrengths(de_p, de_m, de_p_r, de_m_r)
 end
 
 function radiative_coupling_strengths(β, p)
