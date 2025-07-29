@@ -55,7 +55,8 @@ function coupling_strengths(d, r, f, fiber, polarization::Polarization)
     return Ωs
 end
 
-function rabi_frequencies(d, positions, N, f::Integer, fiber::Fiber, polarization::Polarization, power::Real)
+function rabi_frequencies(d, positions, N, f::Integer, fiber::Fiber,
+                          polarization::Polarization, power::Real)
     rabis = zeros(ComplexF64, N)
     for i in 1:N
         x = positions[1, i]
@@ -63,7 +64,8 @@ function rabi_frequencies(d, positions, N, f::Integer, fiber::Fiber, polarizatio
         z = positions[3, i]
         ρ = sqrt(x^2 + y^2)
         ϕ = atan(y, x)
-        ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, f, fiber, polarization, power)
+        ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, f, fiber,
+                                                                polarization, power)
         rabis[i] = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
     end
     return rabis
@@ -164,6 +166,40 @@ function full_width_half_minimum(xs, ys)
     return half_min_lower_index, half_min_upper_index
 end
 
+# This function is to access correct data generated before a bug, which sometimes caused an
+# incorrect range to be generated, was fixed. In other words: backwards compatibility.
+# It is not exported and will probably be removed in the future, once new data has been
+# generated.
+function probe_detuning_range_legacy(Δ_control, d_probe, d_control, Γ_probe, Γ_control,
+                                     polarization_probe, polarization_control,
+                                     fiber_probe::Fiber, fiber_control::Fiber, P_control,
+                                     z_span, cloud::GaussianCloud, resolution::Int)
+    _transmission(Δ_probe) = abs2(continuous_propagation(Δ_probe, Δ_control, d_probe,
+                                                         d_control, Γ_probe, Γ_control,
+                                                         polarization_probe,
+                                                         polarization_control, fiber_probe,
+                                                         fiber_control, P_control, z_span,
+                                                         cloud))
+
+    result_minimum = optimize(_transmission, -Δ_control - Γ_probe, -Δ_control)
+    Δ_min = result_minimum.minimizer
+
+    dark_state_transmission = _transmission(-Δ_control)
+    half_minimum = (result_minimum.minimum + dark_state_transmission) / 2
+
+    result_fwhm_left = optimize(Δ_probe -> abs(_transmission(Δ_probe) - half_minimum),
+                                -Δ_control - Γ_probe, Δ_min)
+    Δ_fwhm_left = result_fwhm_left.minimizer
+
+    left_extension_factor = 2.5
+    right_extension_factor = 2.0
+    
+    lower_bound = Δ_min - left_extension_factor * (Δ_min - Δ_fwhm_left)
+    upper_bound = -Δ_control + right_extension_factor * (-Δ_control - Δ_min)
+
+    return LinRange(lower_bound, upper_bound, resolution)
+end
+
 """
     probe_detuning_range(Δ_control, d_probe, d_control, Γ_probe, Γ_control,
                   polarization_probe, polarization_control, fiber_probe, fiber_control,
@@ -183,14 +219,22 @@ function probe_detuning_range(Δ_control, d_probe, d_control, Γ_probe, Γ_contr
                                                          fiber_control, P_control, z_span,
                                                          cloud))
 
-    result_minimum = optimize(_transmission, -Δ_control - Γ_probe, -Δ_control)
+    minimum_upper_bound = -Δ_control # Two-photon resonance
+    minimum_lower_bound = -Δ_control - Γ_probe / 5 # A bit below Two-photon resonance. This
+                                                   # is a robust guess that seems to work in
+                                                   # all tested cases.
+    result_minimum = optimize(_transmission, minimum_lower_bound, minimum_upper_bound)
     Δ_min = result_minimum.minimizer
 
     dark_state_transmission = _transmission(-Δ_control)
     half_minimum = (result_minimum.minimum + dark_state_transmission) / 2
 
+    fwhm_upper_bound = Δ_min # Transmission minimum.
+    fwhm_lower_bound = -Δ_control - Γ_probe / 10 # A bit below the minimum. Again, this is a
+                                                 # robust guess that seems to work in all
+                                                 # tested cases.
     result_fwhm_left = optimize(Δ_probe -> abs(_transmission(Δ_probe) - half_minimum),
-                                -Δ_control - Γ_probe, Δ_min)
+                                fwhm_lower_bound, fwhm_upper_bound)
     Δ_fwhm_left = result_fwhm_left.minimizer
 
     left_extension_factor = 2.5

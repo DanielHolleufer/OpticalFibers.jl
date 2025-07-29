@@ -207,3 +207,64 @@ function atomic_density_normalization_constant_approximation(cloud::CrossedTweez
     sol = solve(prob, CubaDivonne())
     return sol.u
 end
+
+struct LinearChain <: AtomicCloud
+    radius::Float64
+    angle::Float64
+    z₀::Float64
+    σ_x::Float64
+    σ_y::Float64
+    σ_z::Float64
+    lattice_constant::Float64
+    number_of_atoms::Int
+    number_of_sites::Int
+end
+
+function Base.show(io::IO, cloud::LinearChain)
+    println(io, "Linear chain parameters:")
+    println(io, "ρ = $(cloud.radius)")
+    println(io, "ϕ = $(cloud.angle)")
+    println(io, "z₀ = $(cloud.z₀)")
+    println(io, "σ_x = $(cloud.σ_x)")
+    println(io, "σ_y = $(cloud.σ_y)")
+    println(io, "σ_z = $(cloud.σ_z)")
+    println(io, "lattice_constant = $(cloud.lattice_constant)")
+    println(io, "Number of atoms = $(cloud.number_of_atoms)")
+    print(io, "Number of sites = $(cloud.number_of_sites)")
+end
+
+function linear_chain_discrete(cloud::LinearChain)
+    ρ = cloud.radius
+    ϕ = cloud.angle
+    z₀ = cloud.z₀
+    d = cloud.lattice_constant
+    Na = cloud.number_of_atoms
+    Ns = cloud.number_of_sites
+
+    positions  = Matrix{Float64}(undef, 3, Ns)
+
+    x = ρ * cos(ϕ)
+    y = ρ * sin(ϕ)
+    for i in 1:Ns
+        positions[1, i] = x
+        positions[2, i] = y
+        positions[3, i] = z₀ + (i - 1) * d
+    end
+
+    filled_sites = sort(randperm(Ns)[1:Na])
+    positions = positions[:, filled_sites]
+
+    return positions
+end
+
+function linear_chain_continuous(cloud::LinearChain)
+    
+end
+
+function atomic_cloud(cloud::LinearChain)
+    if cloud.σ_x == 0.0 && cloud.σ_y == 0.0 && cloud.σ_z == 0.0
+        return linear_chain_discrete(cloud)
+    end
+
+    return linear_chain_continuous(cloud)
+end
