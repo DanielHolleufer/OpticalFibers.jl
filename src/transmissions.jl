@@ -42,7 +42,7 @@ function optical_depth(T::Real)
 end
 
 function coupling_strengths(d, positions, mode::GuidedMode)
-    N = size(r)[2]
+    N = size(positions)[2]
     gs = Vector{ComplexF64}(undef, N)
     for i in 1:N
         x = positions[1, i]
