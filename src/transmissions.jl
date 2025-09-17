@@ -44,6 +44,8 @@ end
 function coupling_strengths(d, positions, mode::GuidedMode)
     N = size(positions)[2]
     gs = Vector{ComplexF64}(undef, N)
+    f = direction(mode)
+    β = propagation_constant(mode)
     for i in 1:N
         x = positions[1, i]
         y = positions[2, i]
@@ -52,7 +54,7 @@ function coupling_strengths(d, positions, mode::GuidedMode)
         ϕ = atan(y, x)
         ex, ey, ez = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode)
         d_dot_e = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
-        gs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z)
+        gs[i] = d_dot_e * exp(im * f * β * z)
     end
     return gs
 end
