@@ -1,3 +1,35 @@
+struct ThreeLevelAtom
+    detuning_upper::Float64
+    decay_rate_lower::Float64
+    decay_rate_upper::Float64
+    dipole_moment_lower::Vector{ComplexF64}
+    dipole_moment_upper::Vector{ComplexF64}
+    function ThreeLevelAtom(
+        detuning_upper::Real,
+        decay_rate_lower::Real,
+        decay_rate_upper::Real,
+        dipole_moment_lower::AbstractVector{<:Number},
+        dipole_moment_upper::AbstractVector{<:Number},
+    )
+        return new(
+            float(detuning_upper),
+            float(decay_rate_lower),
+            float(decay_rate_upper),
+            complex(float(dipole_moment_lower)),
+            complex(float(dipole_moment_upper))
+        )
+    end
+end
+
+function Base.show(io::IO, atom::ThreeLevelAtom)
+    println(io, "Three level atom with parameters:")    
+    println(io, "Δ_re = $(atom.detuning_upper)")
+    println(io, "Γ_eg = $(atom.decay_rate_lower)")
+    println(io, "Γ_re = $(atom.decay_rate_upper)")
+    println(io, "d_eg = $(atom.dipole_moment_lower)")
+    print(io, "d_re = $(atom.dipole_moment_upper)")
+end
+
 struct StarkShifts
     ground_state::Float64
     excited_state::Float64
