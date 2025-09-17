@@ -86,6 +86,33 @@ function GaussianCloud(σ_x::Real, σ_y::Real, σ_z::Real, fiber::Fiber, exclusi
     return GaussianCloud(σ_x, σ_y, σ_z, fiber.radius, exclusion_zone, peak_density)
 end
 
+peak_density(cloud::GaussianCloud) = cloud.peak_density
+number_of_atoms(cloud::GaussianCloud) = cloud.number_of_atoms
+
+"""
+    peak_density_gaussian_cloud(σ_x::Real, σ_y::Real, σ_z::Real, fiber_radius::Real,
+                                exclusion_zone::Real, number_of_atoms::Int)
+        
+Compute the peak density of a Gaussian cloud with the given parameters.
+"""
+function peak_density_gaussian_cloud(σ_x::Real, σ_y::Real, σ_z::Real, fiber_radius::Real,
+                                     exclusion_zone::Real, number_of_atoms::Int)
+    p = (σ_x, σ_y, σ_z, fiber_radius, exclusion_zone)
+    normalization_constant = gaussian_cloud_normalization_constant(p)
+    lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
+    upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
+    P_M = box_maximization((u, p) -> gaussian_cloud_unnormalized(u..., p),
+                            [fiber_radius + exclusion_zone, 0.0, 0.0], lower, upper, p)
+    peak_density = normalization_constant * P_M * number_of_atoms
+    return peak_density
+end
+
+function peak_density_gaussian_cloud(σ_x::Real, σ_y::Real, σ_z::Real, fiber::Fiber,
+                                     exclusion_zone::Real, number_of_atoms::Int)
+    return peak_density_gaussian_cloud(σ_x, σ_y, σ_z, fiber.radius, exclusion_zone,
+                                       number_of_atoms)
+end
+
 function Base.show(io::IO, cloud::GaussianCloud)
     println(io, "Gaussian cloud parameters:")
     println(io, "σ_x = $(cloud.σ_x)")

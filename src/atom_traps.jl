@@ -17,9 +17,13 @@ struct CrossedTweezerTrap <: AtomTrap
     stark_shifts::StarkShifts
 end
 
-function CrossedTweezerTrap(waist::Real, power_per_beam::Real, wavelength::Real,
-                            stark_shifts::StarkShifts)
-    return CrossedTweezerTrap(Float64(waist), Float64(power_per_beam), Float64(wavelength), 
+function CrossedTweezerTrap(
+    waist::Real,
+    power_per_beam::Real,
+    wavelength::Real,
+    stark_shifts::StarkShifts,
+)
+    return CrossedTweezerTrap(float(waist), float(power_per_beam), float(wavelength), 
                               stark_shifts)
 end
 
@@ -70,21 +74,33 @@ function trap_potential(x::Real,y::Real, z::Real, trap::CrossedTweezerTrap)
 end
 
 struct FiberTrap <: AtomTrap
-    fiber::Fiber
-    polarization::Polarization
-    power::Float64
+    field::GuidedField
     stark_shifts::StarkShifts
-    propagation_index::Int
+end
+
+function electric_guided_field_cartesian_components(
+    ρ::Real,
+    ϕ::Real,
+    z::Real,
+    t::Real,
+    trap::FiberTrap,
+)
+    return electric_guided_field_cartesian_components(ρ, ϕ, z, t, trap.field)
+end
+
+function electric_guided_field_cartesian_components(
+    ρ::Real,
+    ϕ::Real,
+    z::Real,
+    trap::FiberTrap,
+)
+    return electric_guided_field_cartesian_components(ρ, ϕ, z, trap.field)
 end
 
 function trap_intensity(x::Real, y::Real, z::Real, trap::FiberTrap)
     ρ = sqrt(x^2 + y^2)
     ϕ = atan(y, x)
-    e_x, e_y, e_z = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0,
-                                                               trap.propagation_index, 
-                                                               trap.fiber,
-                                                               trap.polarization,
-                                                               trap.power)
+    e_x, e_y, e_z = electric_guided_field_cartesian_components(ρ, ϕ, z, trap)
     return abs2(e_x) + abs2(e_y) + abs2(e_z)
 end
 

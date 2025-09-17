@@ -12,7 +12,7 @@ function LinearPolarization(axis::Char)
     elseif axis ∈ ('Y', 'y')
         return LinearPolarization(π / 2)
     else
-        error("Expected polarization axis to be either 'x' or 'y', got: '$axis'.")
+        error("Expected polarization axis to be 'x' or 'y', got: '$axis'.")
     end
 end
 
@@ -22,13 +22,62 @@ LinearPolarization(sym::Symbol) = LinearPolarization(string(sym))
 struct CircularPolarization <: Polarization
     l::Int
     function CircularPolarization(l::Int)
-        l ∈ (-1, 1) || throw(DomainError(l, "Polarization index must be either +1 or -1."))
+        l ∈ (-1, 1) || throw(DomainError(l, "Polarization index must be +1 or -1."))
         return new(l)
     end
 end
 
+polarization(polarization::LinearPolarization) = polarization.ϕ₀
+polarization(polarization::CircularPolarization) = polarization.l
+
+struct GuidedMode{P<:Polarization}
+    fiber::Fiber
+    polarization::Polarization
+    f::Int
+    function GuidedMode(fiber::Fiber, polarization::P, f::Int) where {P<:Polarization}
+        f ∈ (-1, 1) || throw(DomainError(f, "Propagation direction must be +1 or -1."))
+        return new{P}(fiber, polarization, f)
+    end
+end
+
+function Base.show(io::IO, mode::GuidedMode)
+    println(io, "Guided mode in")
+    println(io, mode.fiber)
+    println(io, mode.polarization)
+    print(io, "Propagation direction index f = $(mode.f)")
+end
+
+direction(mode::GuidedMode) = mode.f
+polarization(mode::GuidedMode) = polarization(mode.polarization)
+frequency(mode::GuidedMode) = frequency(mode.fiber)
+propagation_constant(mode::GuidedMode) = propagation_constant(mode.fiber)
+propagation_constant_derivative(mode::GuidedMode) = propagation_constant_derivative(mode.fiber)
+radius(mode::GuidedMode) = radius(mode.fiber)
+
+abstract type ElectricField end
+
+struct GuidedField{P<:Polarization} <: ElectricField
+    mode::GuidedMode{P}
+    power::Float64
+end
+
+function Base.show(io::IO, field::GuidedField)
+    println(io, "Guided field in")
+    println(io, field.mode.fiber)
+    println(io, field.mode.polarization)
+    println(io, "Propagation direction index f = $(field.mode.f)")
+    print(io, "Power: $(field.power)")
+end
+
+direction(field::GuidedField) = direction(field.mode)
+polarization(field::GuidedField) = polarization(field.mode)
+frequency(field::GuidedField) = frequency(field.mode)
+propagation_constant(field::GuidedField) = propagation_constant(field.mode)
+propagation_constant_derivative(field::GuidedField) = propagation_constant_derivative(field.mode)
+radius(field::GuidedField) = radius(field.mode)
+
 """
-    electric_guided_mode_cylindrical_base_components(ρ::Real, a::Real, β::Real, p::Real, q::Real, K1J1::Real, s::Real)
+    electric_guided_mode_cylindrical_base_components(ρ::Real, fiber::Fiber)
 
 Compute the underlying cylindrical components of the guided mode electric field used in the
 expressions for both the quasilinear and quasicircular guided modes.
@@ -36,8 +85,10 @@ expressions for both the quasilinear and quasicircular guided modes.
 These components for ``\\rho < a`` are given by
 ```math
 \\begin{aligned}
-    e_{\\rho} &= A \\mathrm{i} \\frac{q}{p} \\frac{K_{1}(q a)}{J_{1}(p a)} [(1 - s) J_{0}(p \\rho) - (1 + s) J_{2}(p \\rho)] \\\\
-    e_{\\phi} &= -A \\frac{q}{p} \\frac{K_{1}(q a)}{J_{1}(p a)} [(1 - s) J_{0}(p \\rho) + (1 + s) J_{2}(p \\rho)] \\\\
+    e_{\\rho} &= A \\mathrm{i} \\frac{q}{p} \\frac{K_{1}(q a)}{J_{1}(p a)}
+    [(1 - s) J_{0}(p \\rho) - (1 + s) J_{2}(p \\rho)] \\\\
+    e_{\\phi} &= -A \\frac{q}{p} \\frac{K_{1}(q a)}{J_{1}(p a)}
+    [(1 - s) J_{0}(p \\rho) + (1 + s) J_{2}(p \\rho)] \\\\
     e_{z} &= A \\frac{2 q}{\\beta} \\frac{K_{1}(q a)}{J_{1}(p a)} J_{1}(p \\rho),
 \\end{aligned}
 ```
@@ -56,7 +107,8 @@ Futhermore, ``J_n`` and ``K_n`` are Bessel functions of the first kind, and modi
 functions of the second kind, respectively, and the prime denotes the derivative. Lastly,
 ``s`` is defined as
 ```math
-s = \\frac{\\frac{1}{p^2 a^2} + \\frac{1}{q^2 a^2}}{\\frac{J_{1}'(p a)}{p a J_{1}(p a)} + \\frac{K_{1}'(q a)}{q a K_{1}(q a)}}.
+s = \\frac{\\frac{1}{p^2 a^2} + \\frac{1}{q^2 a^2}}{\\frac{J_{1}'(p a)}{p a J_{1}(p a)} 
++ \\frac{K_{1}'(q a)}{q a K_{1}(q a)}}.
 ```
 """
 function electric_guided_mode_cylindrical_base_components(ρ::Real, fiber::Fiber)
@@ -83,71 +135,126 @@ function electric_guided_mode_cylindrical_base_components(ρ::Real, fiber::Fiber
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real, f::Integer,
-                                                             fiber::Fiber,
-                                                             polarization::LinearPolarization)
-    f ∈ (-1, 1) || throw(DomainError(f, "Direction of propagation index must be either +1 or -1."))
-
-    ϕ₀ = polarization.ϕ₀
-    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_base_components(ρ, fiber)
-
-    return sqrt(2) * e_ρ * cos(ϕ - ϕ₀), sqrt(2) * im * e_ϕ * sin(ϕ - ϕ₀), sqrt(2) * f * e_z * cos(ϕ - ϕ₀)
+function electric_guided_mode_profile_cylindrical_components(
+    ρ::Real,
+    ϕ::Real,
+    mode::GuidedMode{LinearPolarization},
+)
+    f = direction(mode)
+    ϕ₀ = polarization(mode)
+    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_base_components(ρ, mode.fiber)
+    e_ρ = sqrt(2) * e_ρ * cos(ϕ - ϕ₀)
+    e_ϕ = sqrt(2) * im * e_ϕ * sin(ϕ - ϕ₀)
+    e_z = sqrt(2) * f * e_z * cos(ϕ - ϕ₀)
+    return e_ρ, e_ϕ, e_z
 end
 
-function electric_guided_mode_profile_cylindrical_components(ρ::Real, ϕ::Real, f::Integer,
-                                                             fiber::Fiber,
-                                                             polarization::CircularPolarization)
-    f ∈ (-1, 1) || throw(DomainError(f, "Direction of propagation index must be either +1 or -1."))
-
-    l = polarization.l
-    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_base_components(ρ, fiber)
-
-    return e_ρ * exp(im * l * ϕ), l * e_ϕ * exp(im * l * ϕ), f * e_z * exp(im * l * ϕ)
+function electric_guided_mode_profile_cylindrical_components(
+    ρ::Real,
+    ϕ::Real,
+    mode::GuidedMode{CircularPolarization},
+)
+    f = direction(mode)
+    l = polarization(mode)
+    e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_base_components(ρ, mode.fiber)
+    e_ρ = e_ρ * exp(im * l * ϕ)
+    e_ϕ = l * e_ϕ * exp(im * l * ϕ)
+    e_z = f * e_z * exp(im * l * ϕ)
+    return e_ρ, e_ϕ, e_z
 end
 
-function electric_guided_mode_profile_cartesian_components(ρ::Real, ϕ::Real, f::Integer,
-                                                           fiber::Fiber,
-                                                           polarization::Polarization)
-    e_ρ, e_ϕ, e_z = electric_guided_mode_profile_cylindrical_components(ρ, ϕ, f, fiber,
-                                                                        polarization)
-
+function electric_guided_mode_profile_cartesian_components(
+    ρ::Real,
+    ϕ::Real,
+    mode::GuidedMode,
+)
+    e_ρ, e_ϕ, e_z = electric_guided_mode_profile_cylindrical_components(ρ, ϕ, mode)
     e_x = e_ρ * cos(ϕ) - e_ϕ * sin(ϕ)
     e_y = e_ρ * sin(ϕ) + e_ϕ * cos(ϕ)
-
     return e_x, e_y, e_z
 end
 
+function electric_guided_mode_profile_cartesian_components(
+    ρ::Real,
+    ϕ::Real,
+    field::GuidedField,
+)
+    return electric_guided_mode_profile_cartesian_components(ρ, ϕ, field.mode)
+end
+
 """
-    electric_guided_field_cartesian_components(ρ::Real, ϕ::Real, z::Real, t::Real, f::Integer, fiber::Fiber, polarization::Polarization, power::Real)
+    electric_guided_field_cartesian_components(ρ::Real, ϕ::Real, z::Real, t::Real = 0,
+                                               field::GuidedField)
 
 Compute the cartesian components of a guided electric field at position ``(ρ, ϕ, z)`` and
 time ``t`` with the given ``power``.
 """
-function electric_guided_field_cartesian_components(ρ::Real, ϕ::Real, z::Real, t::Real,
-                                                    f::Integer, fiber::Fiber,
-                                                    polarization::Polarization, power::Real)
-    ω = frequency(fiber)
-    β = propagation_constant(fiber)
-
-    e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, f, fiber, 
-                                                                      polarization)
-    C = sqrt(power * propagation_constant_derivative(fiber) / 2)
+function electric_guided_field_cartesian_components(
+    ρ::Real,
+    ϕ::Real,
+    z::Real,
+    t::Real,
+    field::GuidedField,
+)
+    f = direction(field)
+    ω = frequency(field)
+    β = propagation_constant(field)
+    dβ = propagation_constant_derivative(field)
+    e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, field)
+    C = sqrt(field.power * dβ / 2)
     phase_factor = exp(im * (f * β * z - ω * t))
+    e_x = C * e_x * phase_factor
+    e_y = C * e_y * phase_factor
+    e_z = C * e_z * phase_factor
+    return e_x, e_y, e_z
+end
 
-    return e_x * C * phase_factor, e_y * C * phase_factor, e_z * C * phase_factor
+function electric_guided_field_cartesian_components(
+    ρ::Real,
+    ϕ::Real,
+    z::Real,
+    field::GuidedField,
+)
+    return electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, field)
 end
 
 """
-    electric_guided_field_cartesian_vector(ρ::Real, ϕ::Real, l::Integer, f::Integer, fiber::Fiber, polarization_basis::CircularPolarization, power::Real)
+    electric_guided_field_cartesian_vector(ρ::Real, ϕ::Real, z::Real, t::Real = 0,
+                                           field::GuidedField)
 
 Compute the guided electric field vector at position ``(ρ, ϕ, z)`` and time ``t`` with the
 given ``power``.
 """
-function electric_guided_field_cartesian_vector(ρ::Real, ϕ::Real, z::Real, t::Real,
-                                                f::Integer, fiber::Fiber,
-                                                polarization::Polarization, power::Real)
-    return collect(electric_guided_field_cartesian_components(ρ, ϕ, z, t, f, fiber, 
-                                                              polarization, power))
+function electric_guided_field_cartesian_vector(
+    ρ::Real,
+    ϕ::Real,
+    z::Real,
+    t::Real,
+    field::GuidedField,
+)
+    return collect(electric_guided_field_cartesian_components(ρ, ϕ, z, t, field))
+end
+
+function electric_guided_field_cartesian_vector(
+    ρ::Real,
+    ϕ::Real,
+    z::Real,
+    field::GuidedField,
+)
+    return collect(electric_guided_field_cartesian_components(ρ, ϕ, z, field))
+end
+
+struct ExternalField <: ElectricField
+    wavelength::Float64
+    frequency::Float64
+    rabi_frequency::Float64
+end
+
+function Base.show(io::IO, field::ExternalField)
+    println(io, "External mode with parameters:")
+    println(io, "λ = $(field.wavelength)")
+    println(io, "ω = $(field.frequency)")
+    print(io, "Ω = $(field.rabi_frequency)")
 end
 
 struct RadiationAuxillaryCoefficients
@@ -177,8 +284,13 @@ function reflect(coefficients::RadiationAuxillaryCoefficients)
                                           coefficients.η)
 end
 
-function radiation_mode_auxillary_coefficients(ω::Real, β::Real, m::Integer, q::Real,
-                                               fiber::Fiber)
+function radiation_mode_auxillary_coefficients(
+    ω::Real,
+    β::Real,
+    m::Integer,
+    q::Real,
+    fiber::Fiber,
+)
     a = fiber.radius
     n = fiber.refractive_index
     h = sqrt(n^2 * ω^2 - β^2)
@@ -215,8 +327,13 @@ function Base.show(io::IO, coefficients::RadiationBoundaryConditionCoefficients)
     print(io,   "D₂ = $(coefficients.D₂)")
 end
 
-function radiation_mode_boundary_coefficients(a::Real, ω::Real, l::Integer, q::Real,
-                                              coefficients::RadiationAuxillaryCoefficients)
+function radiation_mode_boundary_coefficients(
+    a::Real,
+    ω::Real,
+    l::Integer,
+    q::Real,
+    coefficients::RadiationAuxillaryCoefficients,
+)
     L = coefficients.L
     V = coefficients.V
     M = coefficients.M
@@ -266,17 +383,23 @@ end
 
 Compute the corresponding auxillary coefficents when sending the index m to -m.
 """
-reflect(coefficients::RadiationHankelCoefficients, m::Int) = (-1)^m * coefficients
+reflect(coefficients::RadiationHankelCoefficients, m::Integer) = (-1)^m * coefficients
 
-function radiation_mode_hankel_coefficients(ρ, m, q)
+function radiation_mode_hankel_coefficients(ρ::Float64, m::Integer, q::Float64)
     h₁ = hankelh1(m, q * ρ)
     dh₁ = 0.5 * (hankelh1(m - 1, q * ρ) - hankelh1(m + 1, q * ρ))
 
     return RadiationHankelCoefficients(h₁, conj(h₁), dh₁, conj(dh₁))
 end
 
-function electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β, m::Integer,
-                                                                      l::Integer, fiber)
+function electric_radiation_mode_cylindrical_base_components_internal(
+    ρ::Float64,
+    ω::Float64,
+    β::Float64,
+    m::Integer,
+    l::Integer,
+    fiber::Fiber,
+)
     a = fiber.radius
     n = fiber.refractive_index
     h = sqrt(n^2 * ω^2 - β^2)
@@ -298,9 +421,15 @@ function electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β, q, m::Integer, 
-                                                                      boundary_coefficients::RadiationBoundaryConditionCoefficients,
-                                                                      hankel_coefficients::RadiationHankelCoefficients)
+function electric_radiation_mode_cylindrical_base_components_external(
+    ρ::Float64,
+    ω::Float64,
+    β::Float64,
+    q::Float64,
+    m::Integer, 
+    boundary_coefficients::RadiationBoundaryConditionCoefficients,
+    hankel_coefficients::RadiationHankelCoefficients,
+)
     A = boundary_coefficients.A
     C₁ = boundary_coefficients.C₁
     C₂ = boundary_coefficients.C₂
@@ -321,8 +450,14 @@ function electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β
     return e_ρ, e_ϕ, e_z
 end
 
-function electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β, m::Integer, 
-                                                                      l::Integer, fiber)
+function electric_radiation_mode_cylindrical_base_components_external(
+    ρ::Float64,
+    ω::Float64,
+    β::Float64,
+    m::Integer, 
+    l::Integer,
+    fiber::Fiber,
+)
     a = fiber.radius
     q = sqrt(ω^2 - β^2)
 
@@ -333,7 +468,14 @@ function electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β
     return electric_radiation_mode_cylindrical_base_components_external(ρ, ω, β, q, m, boundary_coefficients, hankel_coefficients)
 end
 
-function electric_radiation_mode_cylindrical_base_components(ρ, ω, β, m, l, fiber)
+function electric_radiation_mode_cylindrical_base_components(
+    ρ::Float64,
+    ω::Float64,
+    β::Float64,
+    m::Integer,
+    l::Integer,
+    fiber::Fiber,
+)
     if ρ < fiber.radius
         return electric_radiation_mode_cylindrical_base_components_internal(ρ, ω, β, m, l, fiber)
     else
@@ -341,8 +483,15 @@ function electric_radiation_mode_cylindrical_base_components(ρ, ω, β, m, l, f
     end
 end
 
-function electric_radiation_field_cartesian_components(ρ, ϕ, ω, β, m::Integer, l::Integer,
-                                                       fiber::Fiber)
+function electric_radiation_field_cartesian_components(
+    ρ::Float64,
+    ϕ::Float64,
+    ω::Float64,
+    β::Float64,
+    m::Integer,
+    l::Integer,
+    fiber::Fiber,
+)
     e_ρ, e_ϕ, e_z = electric_radiation_mode_cylindrical_base_components(ρ, ω, β, m, l, fiber)
 
     e_x = e_ρ * cos(ϕ) - e_ϕ * sin(ϕ)
@@ -351,7 +500,14 @@ function electric_radiation_field_cartesian_components(ρ, ϕ, ω, β, m::Intege
     return e_x, e_y, e_z
 end
 
-function electric_radiation_mode_cylindrical_base_components_external_both_polarizations_two_atoms(ρ_i, ρ_j, ω, β, m::Integer, fiber)
+function electric_radiation_mode_cylindrical_base_components_external_both_polarizations_two_atoms(
+    ρ_i::Float64,
+    ρ_j::Float64,
+    ω::Float64,
+    β::Float64,
+    m::Integer,
+    fiber::Fiber,
+)
     a = fiber.radius
     q = sqrt(ω^2 - β^2)
 
@@ -372,7 +528,14 @@ function electric_radiation_mode_cylindrical_base_components_external_both_polar
            e_ρ_plus_j, e_ϕ_plus_j, e_z_plus_j, e_ρ_minus_j, e_ϕ_minus_j, e_z_minus_j
 end
 
-function electric_radiation_mode_cylindrical_base_components_external_both_polarizations_and_reflected_two_atoms(ρ_i, ρ_j, ω, β, m::Integer, fiber)
+function electric_radiation_mode_cylindrical_base_components_external_both_polarizations_and_reflected_two_atoms(
+    ρ_i::Float64,
+    ρ_j::Float64,
+    ω::Float64,
+    β::Float64,
+    m::Integer,
+    fiber::Fiber,
+)
     a = fiber.radius
     q = sqrt(ω^2 - β^2)
 

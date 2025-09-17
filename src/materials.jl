@@ -27,6 +27,10 @@ function Base.show(io::IO, material::Material)
     print(io, "C₃ = $(material.C3)μm²")
 end
 
+const SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
+const BK7 = Material(1.03961212, 0.231792344, 1.01046945, 0.00600069867^2, 0.0200179144^2, 103.560653^2)
+const MgF2 = Material(0.48755108, 0.39875031, 2.3120353, 0.001882178, 0.008951888, 566.13559)
+
 """
     sellmeier_equation(material::Material, wavelength_μm::Real)
 

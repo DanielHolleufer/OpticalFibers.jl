@@ -2,11 +2,11 @@ function _loss_function_optim(u, f, xdata, ydata)
     return sum(abs2, ydata .- f.(xdata, u...))
 end
 
-function two_level_transmission_amplitude(Δ::Real, Δ_shift::Real, Γ_1D::Real, Γ_loss::Real)
+function two_level_transmission_coefficient(Δ::Real, Δ_shift::Real, Γ_1D::Real, Γ_loss::Real)
     return 1 - im * Γ_1D / (Δ - Δ_shift + im * (Γ_1D + Γ_loss) / 2)
 end
 
-function three_level_transmission_amplitude(Δ::Real, Γ_1D::Real, Γ_loss::Real, Ω::Real, Δr::Real, γ::Real)
+function three_level_transmission_coefficient(Δ::Real, Γ_1D::Real, Γ_loss::Real, Ω::Real, Δr::Real, γ::Real)
     return 1 - im * Γ_1D / (Δ + im * (Γ_1D + Γ_loss) / 2 - Ω^2 / (Δ + Δr + im * γ / 2))
 end
 
@@ -31,7 +31,7 @@ function single_three_level_transmission_fit(Δs, transmission_data, u0)
 end
 
 function complex_fit_two_level(Δ, t, u0)
-    res = optimize(u -> _loss_function_optim(u, two_level_transmission_amplitude, Δ, t), [-Inf, 0.0, 0.0], [Inf, Inf, Inf], u0)
+    res = optimize(u -> _loss_function_optim(u, two_level_transmission_coefficient, Δ, t), [-Inf, 0.0, 0.0], [Inf, Inf, Inf], u0)
     return Optim.minimizer(res)
 end
 
@@ -41,31 +41,38 @@ function optical_depth(T::Real)
     return -log(T)
 end
 
-function coupling_strengths(d, r, f, fiber, polarization::Polarization)
+function coupling_strengths(d, positions, mode::GuidedMode)
     N = size(r)[2]
-    Ωs = zeros(ComplexF64, N)
-    for i in 1:N
-        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-        ϕ_i = atan(r[2, i], r[1, i])
-        z_i = r[3, i]
-        e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ_i, ϕ_i, f, fiber, polarization)
-        d_dot_e = conj(d[1]) * e_x + conj(d[2]) * e_y + conj(d[3]) * e_z
-        Ωs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z_i)
-    end
-    return Ωs
-end
-
-function rabi_frequencies(d, positions, N, f::Integer, fiber::Fiber,
-                          polarization::Polarization, power::Real)
-    rabis = zeros(ComplexF64, N)
+    gs = Vector{ComplexF64}(undef, N)
     for i in 1:N
         x = positions[1, i]
         y = positions[2, i]
         z = positions[3, i]
         ρ = sqrt(x^2 + y^2)
         ϕ = atan(y, x)
-        ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, 0.0, f, fiber,
-                                                                polarization, power)
+        ex, ey, ez = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode)
+        d_dot_e = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
+        gs[i] = d_dot_e * exp(im * f * fiber.propagation_constant * z)
+    end
+    return gs
+end
+
+function rabi_frequency(ρ, ϕ, z, d, field::GuidedField)
+    ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, field)
+    rabi = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
+    return rabi
+end
+
+function rabi_frequencies(d, positions, field::GuidedField)
+    N = size(positions)[2]
+    rabis = Vector{ComplexF64}(undef, N)
+    for i in 1:N
+        x = positions[1, i]
+        y = positions[2, i]
+        z = positions[3, i]
+        ρ = sqrt(x^2 + y^2)
+        ϕ = atan(y, x)
+        ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, field)
         rabis[i] = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
     end
     return rabis
@@ -153,7 +160,7 @@ function fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
     end
 end
 
-function full_width_half_minimum(xs, ys)
+function full_width_half_minimum_index(xs, ys)
     length(xs) == length(ys) || throw(DimensionMismatch("The x and y arrays must have the same length."))
 
     y_min, y_min_index = findmin(ys)
@@ -164,6 +171,11 @@ function full_width_half_minimum(xs, ys)
     half_min_upper_index = argmin(abs.(ys[y_min_index:end] .- half_min)) + y_min_index - 1
 
     return half_min_lower_index, half_min_upper_index
+end
+
+function full_width_half_minimum(xs, ys)
+    lower_index, upper_index = full_width_half_minimum_index(xs, ys)
+    return xs[upper_index] - xs[lower_index]
 end
 
 # This function is to access correct data generated before a bug, which sometimes caused an
@@ -208,11 +220,11 @@ end
 Compute a suitable range of probe detunings around the Autler Townes resonance that appear
 near the two-photon resonance at low control power.
 """
-function probe_detuning_range(Δ_control, d_probe, d_control, Γ_probe, Γ_control,
+function probe_detuning_range_deprecated(Δ_control, d_probe, d_control, Γ_probe, Γ_control,
                               polarization_probe, polarization_control, fiber_probe::Fiber,
                               fiber_control::Fiber, P_control, z_span, cloud::GaussianCloud,
                               resolution::Int)
-    _transmission(Δ_probe) = abs2(continuous_propagation(Δ_probe, Δ_control, d_probe,
+    _transmission(Δ_probe) = abs2(continuous_propagation_deprecated(Δ_probe, Δ_control, d_probe,
                                                          d_control, Γ_probe, Γ_control,
                                                          polarization_probe,
                                                          polarization_control, fiber_probe,
@@ -246,11 +258,11 @@ function probe_detuning_range(Δ_control, d_probe, d_control, Γ_probe, Γ_contr
     return LinRange(lower_bound, upper_bound, resolution)
 end
 
-function probe_detuning_range(Δ_control, d_probe, Γ_probe, Γ_control,
+function probe_detuning_range_deprecated(Δ_control, d_probe, Γ_probe, Γ_control,
                               polarization_probe, fiber_probe::Fiber,
                               rabi_frequency, z_span, cloud::GaussianCloud,
                               resolution::Int)
-    _transmission(Δ_probe) = abs2(continuous_propagation(Δ_probe, Δ_control, d_probe,
+    _transmission(Δ_probe) = abs2(continuous_propagation_deprecated(Δ_probe, Δ_control, d_probe,
                                                          Γ_probe, Γ_control,
                                                          polarization_probe, fiber_probe, 
                                                          rabi_frequency, z_span, cloud))
