@@ -38,11 +38,12 @@ include("gauss_legendre.jl")
 
 using Bessels
 using Cuba
-using DifferentialEquations
 using Integrals
 using LinearAlgebra
 using NonlinearSolve
 using Optim
+using Optimization
+using OptimizationNLopt
 using QuadGK
 using Random
 using SpecialFunctions: gamma, gamma_inc

@@ -123,38 +123,42 @@ function decay_rate_guided_total(ρ, ϕ, d, fiber, front_factor)
     return 2π * front_factor^2 * (abs2(g1) + abs2(g2) + abs2(g3) + abs2(g4))
 end
 
+function _transmittance(Δ, p)
+    t = transmission_coefficient_continuous_propagation(Δ[1], p...)
+    T = abs2(t)
+    return T
+end
+
 function probe_detuning_range(
     probe::GuidedMode,
     control::ElectricField,
     atom::ThreeLevelAtom,
     cloud::GaussianCloud;
     resolution::Integer=500,
+    range_scale_factor::Real=4.0,
 )
-    function _transmittance(Δ)
-        t = transmission_coefficient_continuous_propagation(Δ, probe, control, atom, cloud)
-        T = abs2(t)
-        return T
-    end
-
-    Γ_eg = atom.decay_rate_lower
     Δ_r = atom.detuning_upper
-    lower_bound = -Δ_r - 10 * Γ_eg
-    upper_bound = -Δ_r
-    result_min = optimize(_transmittance, lower_bound, upper_bound)
-    Δ_min = result_min.minimizer
+    p = (probe, control, atom, cloud)
+    optprob = OptimizationFunction(_transmittance)
+    prob = OptimizationProblem(optprob, [-2 * Δ_r], p, lb = [-Inf], ub = [-Δ_r])
+    sol = solve(prob, NLopt.LN_NELDERMEAD())
+    Δ_min = sol.u[1]
+    T_min = sol.objective
 
-    dark_state_transmittance = _transmittance(-Δ_r)
-    half_min = (result_min.minimum + dark_state_transmittance) / 2
+    dark_state_transmittance = _transmittance([-Δ_r], p)
+    half_min = (T_min + dark_state_transmittance) / 2
 
-    result_fwhm_left = optimize(Δ -> abs(_transmittance(Δ) - half_min), lower_bound, Δ_min)
-    Δ_fwhm_left = result_fwhm_left.minimizer
+    optprob_fwhm = OptimizationFunction((u, p) -> abs(_transmittance(u, p) - half_min))
+    prob_left = OptimizationProblem(optprob_fwhm, sol.u, p, lb = [-Inf], ub = sol.u)
+    sol_left = solve(prob_left, NLopt.LN_NELDERMEAD())
+    Δ_fwhm_left = sol_left.u[1]
 
-    result_fwhm_right = optimize(Δ -> abs(_transmittance(Δ) - half_min), Δ_min, -Δ_r)
-    Δ_fwhm_right = result_fwhm_right.minimizer
+    prob_right = OptimizationProblem(optprob_fwhm, sol.u, p, lb = sol.u, ub = [-Δ_r])
+    sol_right = solve(prob_right, NLopt.LN_NELDERMEAD())
+    Δ_fwhm_right = sol_right.u[1]
     
-    range_extension_factor = 3.0
-    range_lower_bound = Δ_min - range_extension_factor * (Δ_min - Δ_fwhm_left)
-    range_upper_bound = Δ_min + range_extension_factor * (Δ_fwhm_right - Δ_min)
+    range_lower_bound = Δ_min - range_scale_factor * (Δ_min - Δ_fwhm_left)
+    range_upper_bound = Δ_min + range_scale_factor * (Δ_fwhm_right - Δ_min)
 
     return LinRange(range_lower_bound, range_upper_bound, resolution)
 end

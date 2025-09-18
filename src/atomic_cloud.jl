@@ -1,5 +1,5 @@
 function box_maximization(f, r0, lower, upper, p; algorithm=LBFGS())
-    opt = optimize(r -> -f(r, p), lower, upper, r0, Fminbox(algorithm))
+    opt = Optim.optimize(r -> -f(r, p), lower, upper, r0, Fminbox(algorithm))
     x_max = Optim.minimizer(opt)
     return f(x_max, p)
 end
