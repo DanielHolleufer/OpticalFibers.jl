@@ -123,13 +123,19 @@ function electric_guided_mode_cylindrical_base_components(ρ::Real, fiber::Fiber
 
     if ρ < a
         K1J1 = besselk1(q * a) / besselj1(h * a)
-        e_ρ = im * A * q / h * K1J1 * ((1 - s) * besselj0(h * ρ) - (1 + s) * besselj(2, h * ρ))
-        e_ϕ = -A * q / h * K1J1 * ((1 - s) * besselj0(h * ρ) + (1 + s) * besselj(2, h * ρ))
-        e_z = 2 * A * q / β * K1J1 * besselj1(h * ρ)
+        j0 = besselj0(h * ρ)
+        j1 = besselj1(h * ρ)
+        j2 = besselj(2, h * ρ)
+        e_ρ = im * A * q / h * K1J1 * ((1 - s) * j0 - (1 + s) * j2)
+        e_ϕ = -A * q / h * K1J1 * ((1 - s) * j0 + (1 + s) * j2)
+        e_z = 2 * A * q / β * K1J1 * j1
     else
-        e_ρ = im * A * ((1 - s) * besselk0(q * ρ) + (1 + s) * besselk(2, q * ρ))
-        e_ϕ = -A * ((1 - s) * besselk0(q * ρ) - (1 + s) * besselk(2, q * ρ))
-        e_z = 2 * A * q / β * besselk1(q * ρ)
+        k0 = besselk0(q * ρ)
+        k1 = besselk1(q * ρ)
+        k2 = besselk(2, q * ρ)
+        e_ρ = im * A * ((1 - s) * k0 + (1 + s) * k2)
+        e_ϕ = -A * ((1 - s) * k0 - (1 + s) * k2)
+        e_z = 2 * A * q / β * k1
     end
 
     return e_ρ, e_ϕ, e_z
