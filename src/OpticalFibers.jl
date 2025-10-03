@@ -38,6 +38,7 @@ include("gauss_legendre.jl")
 
 using Bessels
 using Cuba
+using Distributions
 using Integrals
 using LinearAlgebra
 using NonlinearSolve
