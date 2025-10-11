@@ -5,10 +5,9 @@ export Fiber, radius, wavelength, frequency, material, refractive_index,
     propagation_constant, propagation_constant_derivative, normalized_frequency,
     effective_refractive_index
 export Polarization, polarization, LinearPolarization, CircularPolarization, GuidedMode,
-    GuidedField, direction, ExternalField, electric_guided_mode_cylindrical_base_components,
-    electric_guided_mode_profile_cylindrical_components,
-    electric_guided_mode_profile_cartesian_components,
-    electric_guided_field_cartesian_components, electric_guided_field_cartesian_vector
+    GuidedField, direction, ExternalField, electric_guided_mode_base,
+    electric_guided_mode_profile_cylindrical, electric_guided_mode_profile_cartesian,
+    electric_guided_field_cartesian
 export ThreeLevelAtom, StarkShifts, ytterbium_stark_shift_1070nm_natural_units, 
     ytterbium_stark_shift_395nm_natural_units
 export AtomTrap, CrossedTweezerTrap, FiberTrap, CrossedTweezerFiberTrap, trap_intensity,
@@ -45,7 +44,6 @@ using NonlinearSolve
 using Optim
 using Optimization
 using OptimizationNLopt
-using QuadGK
 using Random
 using SpecialFunctions: gamma, gamma_inc
 

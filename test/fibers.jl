@@ -15,7 +15,7 @@ using Integrals
         fiber = parameters[1]
         a = fiber.radius
         n = fiber.refractive_index
-        e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_base_components(ρ, fiber)
+        e_ρ, e_ϕ, e_z = electric_guided_mode_base(ρ, fiber)
         abs2e = abs2(e_ρ) + abs2(e_ϕ) + abs2(e_z)
         if ρ < a
             return ρ * n^2 * abs2e

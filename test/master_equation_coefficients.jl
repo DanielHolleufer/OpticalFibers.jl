@@ -112,3 +112,5 @@ end
     data = [Γ_22_ρs -J_12_ρs Γ_12_ρs Γ_22_p_ρs Γ_12_p_ρs Γ_22_m_ρs Γ_12_m_ρs Γ_22_zs -J_12_zs Γ_12_zs Γ_22_p_zs Γ_12_p_zs Γ_22_m_zs Γ_12_m_zs]
     @test data ≈ test_data atol=1e-6
 end
+
+

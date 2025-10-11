@@ -46,110 +46,101 @@ end
     SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
     fiber = Fiber(a, λ, SiO2)
 
-    @test_throws DomainError electric_guided_mode_cylindrical_base_components(-1.0, fiber)
+    @test_throws DomainError electric_guided_mode_base(-1.0, fiber)
 
-    linear_x = LinearPolarization(0.0)
-    @test_throws DomainError GuidedMode(fiber, linear_x, 0)
-    @test_throws DomainError GuidedMode(fiber, linear_x, 2)
-    @test_throws MethodError GuidedMode(fiber, linear_x, 1.0)
+    HLP = LinearPolarization(0.0)
+    @test_throws DomainError GuidedMode(fiber, HLP, 0)
+    @test_throws DomainError GuidedMode(fiber, HLP, 2)
+    @test_throws MethodError GuidedMode(fiber, HLP, 1.0)
     
-    circular_clockwise = CircularPolarization(-1)
-    @test_throws DomainError GuidedMode(fiber, circular_clockwise, 0)
-    @test_throws DomainError GuidedMode(fiber, circular_clockwise, 2)
-    @test_throws MethodError GuidedMode(fiber, circular_clockwise, 1.0)
+    LHCP = CircularPolarization(-1)
+    @test_throws DomainError GuidedMode(fiber, LHCP, 0)
+    @test_throws DomainError GuidedMode(fiber, LHCP, 2)
+    @test_throws MethodError GuidedMode(fiber, LHCP, 1.0)
 
-    linear_mode = GuidedMode(fiber, linear_x, 1)
-    circular_mode = GuidedMode(fiber, circular_clockwise, 1)
-    @test typeof(linear_mode) != typeof(circular_mode)
+    HLP_mode = GuidedMode(fiber, HLP, 1)
+    LHCP_mode = GuidedMode(fiber, LHCP, 1)
+    @test typeof(HLP_mode) != typeof(LHCP_mode)
 
-    linear_field = GuidedField(linear_mode, 1.0)
-    circular_field = GuidedField(circular_mode, 1.0)
-    @test typeof(linear_field) != typeof(circular_field)
-    @test typeof(linear_mode) != typeof(linear_field)
+    HLP_field = GuidedField(HLP_mode, 1.0)
+    LHCP_field = GuidedField(LHCP_mode, 1.0)
+    @test typeof(HLP_field) != typeof(LHCP_field)
+    @test typeof(HLP_mode) != typeof(HLP_field)
 
-    @test direction(linear_field) == direction(linear_mode)
-    @test polarization(linear_field) == polarization(linear_mode)
-    @test frequency(linear_field) == frequency(linear_mode)
-    @test propagation_constant(linear_field) == propagation_constant(linear_mode)
-    @test propagation_constant_derivative(linear_field) == propagation_constant_derivative(linear_mode)
+    @test direction(HLP_mode) == direction(HLP_mode)
+    @test polarization(HLP_field) == polarization(HLP_mode)
+    @test frequency(HLP_field) == frequency(HLP_mode)
+    @test propagation_constant(HLP_field) == propagation_constant(HLP_mode)
+    @test propagation_constant_derivative(HLP_field) == propagation_constant_derivative(HLP_mode)
 end
 
 @testset "Transformation Between Linearly and Circularly Polarized Modes" begin
-    function circular_linear_transformation(fiber)
-        test_resolution = 513
-        xs = LinRange(-25.0, 25.0, test_resolution)
-        ys = LinRange(-25.0, 25.0, test_resolution)
-
-        linearly_polarized_xx_1 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_xy_1 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_xz_1 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_xx_2 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_xy_2 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_xz_2 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_yx_1 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_yy_1 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_yz_1 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_yx_2 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_yy_2 = zeros(ComplexF64, length(xs), length(ys))
-        linearly_polarized_yz_2 = zeros(ComplexF64, length(xs), length(ys))
-
-        linear_mode_x = GuidedMode(fiber, LinearPolarization('x'), 1)
-        linear_mode_y = GuidedMode(fiber, LinearPolarization('y'), 1)
-        circular_mode_p = GuidedMode(fiber, CircularPolarization(1), 1)
-        circular_mode_m = GuidedMode(fiber, CircularPolarization(-1), 1)
+    function mode_components_transverse_plane(xs, ys, mode)
+        Ex = Matrix{ComplexF64}(undef, length(xs), length(ys))
+        Ey = Matrix{ComplexF64}(undef, length(xs), length(ys))
+        Ez = Matrix{ComplexF64}(undef, length(xs), length(ys))
 
         for (j, y) in enumerate(ys)
             for (i, x) in enumerate(xs)
                 ρ = sqrt(x^2 + y^2)
                 ϕ = atan(y, x)
-                E_lin_x_x, E_lin_x_y, E_lin_x_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, linear_mode_x)
-                E_lin_y_x, E_lin_y_y, E_lin_y_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, linear_mode_y)
-                E_circ_p_x, E_circ_p_y, E_circ_p_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, circular_mode_p)
-                E_circ_m_x, E_circ_m_y, E_circ_m_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, circular_mode_m)
-
-                linearly_polarized_xx_1[i, j] = E_lin_x_x
-                linearly_polarized_xy_1[i, j] = E_lin_x_y
-                linearly_polarized_xz_1[i, j] = E_lin_x_z
-                linearly_polarized_yx_1[i, j] = E_lin_y_x
-                linearly_polarized_yy_1[i, j] = E_lin_y_y
-                linearly_polarized_yz_1[i, j] = E_lin_y_z
-                linearly_polarized_xx_2[i, j] = 1 / sqrt(2) * (E_circ_p_x + E_circ_m_x)
-                linearly_polarized_xy_2[i, j] = 1 / sqrt(2) * (E_circ_p_y + E_circ_m_y)
-                linearly_polarized_xz_2[i, j] = 1 / sqrt(2) * (E_circ_p_z + E_circ_m_z)
-                linearly_polarized_yx_2[i, j] = -im / sqrt(2) * (E_circ_p_x - E_circ_m_x)
-                linearly_polarized_yy_2[i, j] = -im / sqrt(2) * (E_circ_p_y - E_circ_m_y)
-                linearly_polarized_yz_2[i, j] = -im / sqrt(2) * (E_circ_p_z - E_circ_m_z)
+                E_x, E_y, E_z = electric_guided_mode_profile_cartesian(ρ, ϕ, mode)
+                Ex[i, j] = E_x
+                Ey[i, j] = E_y
+                Ez[i, j] = E_z
             end
         end
 
-        return linearly_polarized_xx_1, linearly_polarized_xy_1, linearly_polarized_xz_1,
-            linearly_polarized_yx_1, linearly_polarized_yy_1, linearly_polarized_yz_1,
-            linearly_polarized_xx_2, linearly_polarized_xy_2, linearly_polarized_xz_2,
-            linearly_polarized_yx_2, linearly_polarized_yy_2, linearly_polarized_yz_2
+        return Ex, Ey, Ez
     end
+
+    resolution = 251
+    xs = LinRange(-25.0, 25.0, resolution)
+    ys = LinRange(-25.0, 25.0, resolution)
 
     a = 0.05
     λ = 0.399
     SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
     fiber = Fiber(a, λ, SiO2)
-    lin_xx_1, lin_xy_1, lin_xz_1, lin_yx_1, lin_yy_1, lin_yz_1, lin_xx_2, lin_xy_2, lin_xz_2, lin_yx_2, lin_yy_2, lin_yz_2 = circular_linear_transformation(fiber)
-    @test lin_xx_1 ≈ lin_xx_2 atol = 1e-12
-    @test lin_xy_1 ≈ lin_xy_2 atol = 1e-12
-    @test lin_xz_1 ≈ lin_xz_2 atol = 1e-12
-    @test lin_yx_1 ≈ lin_yx_2 atol = 1e-12
-    @test lin_yy_1 ≈ lin_yy_2 atol = 1e-12
-    @test lin_yz_1 ≈ lin_yz_2 atol = 1e-12
+    forward = 1
+    HLP = GuidedMode(fiber, LinearPolarization('x'), forward)
+    VLP = GuidedMode(fiber, LinearPolarization('y'), forward)
+    RHCP = GuidedMode(fiber, CircularPolarization(1), forward)
+    LHCP = GuidedMode(fiber, CircularPolarization(-1), forward)
 
-    a = 0.2
+    Ex_HLP, Ey_HLP, Ez_HLP = mode_components_transverse_plane(xs, ys, HLP)
+    Ex_VLP, Ey_VLP, Ez_VLP = mode_components_transverse_plane(xs, ys, VLP)
+    Ex_RHCP, Ey_RHCP, Ez_RHCP = mode_components_transverse_plane(xs, ys, RHCP)
+    Ex_LHCP, Ey_LHCP, Ez_LHCP = mode_components_transverse_plane(xs, ys, LHCP)
+
+    @test Ex_HLP ≈ 1 / sqrt(2) * (Ex_RHCP + Ex_LHCP)
+    @test Ey_HLP ≈ 1 / sqrt(2) * (Ey_RHCP + Ey_LHCP)
+    @test Ez_HLP ≈ 1 / sqrt(2) * (Ez_RHCP + Ez_LHCP)
+    @test Ex_VLP ≈ -im / sqrt(2) * (Ex_RHCP - Ex_LHCP)
+    @test Ey_VLP ≈ -im / sqrt(2) * (Ey_RHCP - Ey_LHCP)
+    @test Ez_VLP ≈ -im / sqrt(2) * (Ez_RHCP - Ez_LHCP)
+
+    a = 0.25
     λ = 0.852
+    SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
     fiber = Fiber(a, λ, SiO2)
-    lin_xx_1, lin_xy_1, lin_xz_1, lin_yx_1, lin_yy_1, lin_yz_1, lin_xx_2, lin_xy_2, lin_xz_2, lin_yx_2, lin_yy_2, lin_yz_2 = circular_linear_transformation(fiber)
-    @test lin_xx_1 ≈ lin_xx_2 atol = 1e-12
-    @test lin_xy_1 ≈ lin_xy_2 atol = 1e-12
-    @test lin_xz_1 ≈ lin_xz_2 atol = 1e-12
-    @test lin_yx_1 ≈ lin_yx_2 atol = 1e-12
-    @test lin_yy_1 ≈ lin_yy_2 atol = 1e-12
-    @test lin_yz_1 ≈ lin_yz_2 atol = 1e-12
+    backward = -1
+    HLP = GuidedMode(fiber, LinearPolarization('x'), backward)
+    VLP = GuidedMode(fiber, LinearPolarization('y'), backward)
+    RHCP = GuidedMode(fiber, CircularPolarization(1), backward)
+    LHCP = GuidedMode(fiber, CircularPolarization(-1), backward)
+
+    Ex_HLP, Ey_HLP, Ez_HLP = mode_components_transverse_plane(xs, ys, HLP)
+    Ex_VLP, Ey_VLP, Ez_VLP = mode_components_transverse_plane(xs, ys, VLP)
+    Ex_RHCP, Ey_RHCP, Ez_RHCP = mode_components_transverse_plane(xs, ys, RHCP)
+    Ex_LHCP, Ey_LHCP, Ez_LHCP = mode_components_transverse_plane(xs, ys, LHCP)
+
+    @test Ex_HLP ≈ 1 / sqrt(2) * (Ex_RHCP + Ex_LHCP)
+    @test Ey_HLP ≈ 1 / sqrt(2) * (Ey_RHCP + Ey_LHCP)
+    @test Ez_HLP ≈ 1 / sqrt(2) * (Ez_RHCP + Ez_LHCP)
+    @test Ex_VLP ≈ -im / sqrt(2) * (Ex_RHCP - Ex_LHCP)
+    @test Ey_VLP ≈ -im / sqrt(2) * (Ey_RHCP - Ey_LHCP)
+    @test Ez_VLP ≈ -im / sqrt(2) * (Ez_RHCP - Ez_LHCP)
 end
 
 @testset "Propagating Power" begin
@@ -167,9 +158,10 @@ end
         ω = fiber.frequency
         β = fiber.propagation_constant
         dβ = propagation_constant_derivative(fiber)
-        e_ρ, e_ϕ, e_z = electric_guided_mode_cylindrical_base_components(ρ, fiber)
+        e_ρ, e_ϕ, e_z = electric_guided_mode_base(ρ, fiber)
         de_z = longitudinal_base_component_derivative(ρ::Real, fiber::Fiber)
-        return 2π * dβ / ω * ρ * real(β * e_ϕ^2 - β * e_ρ^2 - e_ϕ * e_z / ρ - im * e_ρ * de_z)
+        P = 2π * dβ / ω * ρ * real(β * e_ϕ^2 - β * e_ρ^2 - e_ϕ * e_z / ρ - im * e_ρ * de_z)
+        return P
     end
 
     function longitudinal_base_component_derivative(ρ::Real, fiber::Fiber)
@@ -203,4 +195,95 @@ end
     λ = 0.852
     fiber = Fiber(a, λ, SiO2)
     @test propagating_power(fiber) ≈ 1.0 atol=1e-5
+end
+
+@testset "Auxiliary Coefficients" begin
+    BesselHankelSurfaceEvaluations = OpticalFibers.BesselHankelSurfaceEvaluations
+    bessel_hankel_surface_evaluations = OpticalFibers.bessel_hankel_surface_evaluations
+    radiation_auxiliary_coefficients = OpticalFibers.radiation_auxiliary_coefficients
+
+    besselj_derivative(m, x) = 0.5 * (besselj(m - 1, x) - besselj(m + 1, x))
+    hankelh1_derivative(m, x) = 0.5 * (hankelh1(m - 1, x) - hankelh1(m + 1, x))
+
+    a = 0.05
+    λ = 0.399
+    ω = 2π / λ
+    SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
+    fiber = Fiber(a, λ, SiO2)
+    n = refractive_index(fiber)
+
+    m_max = 50
+    resolution = 1000
+    βs = ω * cos.(gauss_legendre_pairs(resolution))
+    hs = sqrt.(n^2 * ω^2 .- βs.^2)
+    qs = sqrt.(ω^2 .- βs.^2)
+
+    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, fiber, resolution)
+    auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, fiber, evaluations)
+    m_idx = (1, 5, 6, 31, 32, 49, m_max)
+    β_idx = (1, 2, 3, 99, 100, 101, 499, 500, 501, 749, 750, 751, 999, resolution)
+    for j in β_idx, i in m_idx,
+        m = i - 1
+        β = βs[j]
+        h = hs[j]
+        q = qs[j]
+
+        J = besselj(m, h * a)
+        dJ = besselj_derivative(m, h * a)
+        H1 = hankelh1(m, q * a)
+        dH1 = hankelh1_derivative(m, q * a)
+        evals = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
+        @test evals == evaluations[i, j]
+
+        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, fiber, evals)
+        @test aux == auxiliary[i, j]
+    end
+
+    a = 0.25
+    λ = 0.852
+    ω = 2π / λ
+    fiber = Fiber(a, λ, SiO2)
+    n = refractive_index(fiber)
+
+    m_max = 35
+    resolution = 513
+    βs = ω * cos.(gauss_legendre_pairs(resolution))
+    hs = sqrt.(n^2 * ω^2 .- βs.^2)
+    qs = sqrt.(ω^2 .- βs.^2)
+
+    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, fiber, resolution)
+    auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, fiber, evaluations)
+    m_idx = (1, 2, 9, 10, 34, m_max)
+    β_idx = (1, 2, 5, 199, 200, 201, 499, 500, 501, resolution)
+    for j in β_idx, i in m_idx,
+        m = i - 1
+        β = βs[j]
+        h = hs[j]
+        q = qs[j]
+
+        J = besselj(m, h * a)
+        dJ = besselj_derivative(m, h * a)
+        H1 = hankelh1(m, q * a)
+        dH1 = hankelh1_derivative(m, q * a)
+        evals = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
+        @test evals == evaluations[i, j]
+
+        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, fiber, evals)
+        @test aux == auxiliary[i, j]
+    end
+end
+
+@testset "Boundary Coefficients" begin
+    a = 0.05
+    λ = 0.399
+    ω = 2π / λ
+    SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
+    fiber = Fiber(a, λ, SiO2)
+    n = refractive_index(fiber)
+
+    m_max = 50
+    resolution = 1000
+    βs = ω * cos.(gauss_legendre_pairs(resolution))
+    hs = sqrt.(n^2 * ω^2 .- βs.^2)
+    qs = sqrt.(ω^2 .- βs.^2)
 end

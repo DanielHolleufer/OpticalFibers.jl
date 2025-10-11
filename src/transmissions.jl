@@ -52,7 +52,7 @@ function coupling_strengths(d, positions, mode::GuidedMode)
         z = positions[3, i]
         ρ = sqrt(x^2 + y^2)
         ϕ = atan(y, x)
-        ex, ey, ez = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode)
+        ex, ey, ez = electric_guided_mode_profile_cartesian(ρ, ϕ, mode)
         d_dot_e = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
         gs[i] = d_dot_e * exp(im * f * β * z)
     end
