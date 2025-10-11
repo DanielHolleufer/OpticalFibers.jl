@@ -1,57 +1,110 @@
-"""
-    greens_function_free_space(k, r)
-
-Compute the Green's tensor of the electric field in free space with wave number `k` and
-position vector `k`.
-"""
-function greens_function_free_space(k, r)
-    rr = r * r'
-    kr = k * norm(r)
-    G = k * exp(im * kr) / (4π * kr^3) * ((kr^2 + im * kr - 1) * I + (-kr^2 - 3im * kr + 3) * rr / (norm(r)^2))
-    return G
-end
+## Vacuum Coefficients ##
 
 """
-    vacuum_coefficients(r, d, ω₀)
+    vacuum_coefficients(positions, dipole, ω₀)
 
 Compute the dipole-dipole and decay coefficients for the master equation describing a cloud
 of atoms with positions given by the columns in `r` (in cartesian coordinates), dipole
 moment `d`, and transition frequency `ω₀` coupled to the vacuum field.
 """
-function vacuum_coefficients(r, d, ω₀)
-    N = size(r)[2]
-    γ₀ = ω₀^3 * norm(d)^2 / (3π)
-    coeff = zeros(ComplexF64, N, N)
+function vacuum_coefficients(positions, dipole, ω₀)
+    N = size(positions)[2]
+    d_norm2 = sum(abs2, dipole)
+    ω₀³ = ω₀^3
+    γ₀ = ω₀³ * d_norm2 / (3π)
+    coeff = Matrix{ComplexF64}(undef, N, N)
     for j in 1:N
-        for i in 1:N
-            x_ij = r[1, i] - r[1, j]
-            y_ij = r[2, i] - r[2, j]
-            z_ij = r[3, i] - r[3, j]
-            dr = d[1]' * x_ij + d[2]' * y_ij + d[3]' * z_ij
-            kr = ω₀ * sqrt(x_ij^2 + y_ij^2 + z_ij^2)
-            coeff[i, j] = ω₀^3 * exp(im * kr) / (4π * kr^3) * ((kr^2 + im * kr - 1) * norm(d)^2 + (-kr^2 - 3im * kr + 3) * abs2(dr) / (kr / ω₀)^2)
+        x_j, y_j, z_j = positions[1, j], positions[2, j], positions[3, j]
+        for i in j+1:N
+            x_i, y_i, z_i = positions[1, i], positions[2, i], positions[3, i]
+            x_ij = x_i - x_j
+            y_ij = y_i - y_j
+            z_ij = z_i - z_j
+
+            r_norm2 = x_ij^2 + y_ij^2 + z_ij^2
+            dr = conj(dipole[1]) * x_ij + conj(dipole[2]) * y_ij + conj(dipole[3]) * z_ij
+            kr = ω₀ * sqrt(r_norm2)
+
+            factor = ω₀³ * exp(im * kr) / (4π * kr^3)
+            term_1 = (kr^2 + im * kr - 1) * d_norm2
+            term_2 = (-kr^2 - 3im * kr + 3) * abs2(dr) / r_norm2
+            coeff[i, j] = factor * (term_1 + term_2)
+            coeff[j, i] = conj(coeff[i, j])
         end
     end
-    [coeff[i, i] = 0.0 + im * γ₀ / 2 for i in 1:N]
+    coeff[diagind(coeff)] .= im * γ₀ / 2
     J = real.(coeff)
     Γ = 2 * imag.(coeff)
     return J, Γ
 end
 
-"""
-    guided_coupling_strength(ρ, ϕ, z, d, l, f, fiber)
 
-Compute the coupling strength between an atom and a guided fiber mode.
+## Guided Mode Coefficients ##
 
-Implementation of Eq. (7), top equation from Fam Le Kien and A. Rauschenbeutel. 
-"Nanofiber-mediated chiral radiative coupling between two atoms". Phys. Rev. A 95, 023838
-(2017).
-"""
-function guided_coupling_strength(ρ, ϕ, z, d, l, f, fiber, polarization_basis::CircularPolarization)
+struct GuidedCouplingStrengths
+    fwd_rhcp::ComplexF64
+    fwd_lhcp::ComplexF64
+    bwd_rhcp::ComplexF64
+    bwd_lhcp::ComplexF64
+end
+
+function GuidedCouplingStrengths(
+    fwd_rhcp::Number,
+    fwd_lhcp::Number,
+    bwd_rhcp::Number,
+    bwd_lhcp::Number
+)
+    return GuidedCouplingStrengths(
+        ComplexF64(fwd_rhcp),
+        ComplexF64(fwd_lhcp),
+        ComplexF64(bwd_rhcp),
+        ComplexF64(bwd_lhcp)
+    )
+end
+
+function Base.show(io::IO, coupling_strengths::GuidedCouplingStrengths)
+    println(io, "Coupling strength to different modes:")
+    println(io, "Forward RHCP  (f =  1, l =  1): $(coupling_strengths.fwd_rhcp)")
+    println(io, "Forward LHCP  (f = -1, l =  1): $(coupling_strengths.fwd_lhcp)")
+    println(io, "Backward RHCP (f =  1, l = -1): $(coupling_strengths.bwd_rhcp)")
+    print(io,   "Backward LHCP (f = -1, l = -1): $(coupling_strengths.bwd_lhcp)")
+end
+
+function guided_coupling_strengths(r, d::Vector{<:Number}, fiber::Fiber)
+    x, y, z = r
+    ρ = sqrt(x^2 + y^2)
+    ϕ = atan(y, x)
     β = fiber.propagation_constant
-    e_x, e_y, e_z = electric_guided_mode_cartesian_components(ρ, ϕ, l, f, fiber, polarization_basis)
-    de = (d[1] * e_x + d[2] * e_y + d[3] * e_z)
-    return de * exp(im * (l * ϕ + f * β * z))
+
+    e_ρ, e_ϕ, e_z = electric_guided_mode_base(ρ, fiber)
+
+    rhcp_phase_factor = exp(im * ϕ)
+    lhcp_phase_factor = conj(rhcp_phase_factor)
+
+    e_ρ_rhcp = e_ρ * rhcp_phase_factor
+    e_ρ_lhcp = e_ρ * lhcp_phase_factor
+    e_ϕ_rhcp = e_ϕ * rhcp_phase_factor
+    e_ϕ_lhcp = -e_ϕ * lhcp_phase_factor
+
+    cosϕ = real(rhcp_phase_factor)
+    sinϕ = imag(rhcp_phase_factor)
+
+    e_x_rhcp = e_ρ_rhcp * cosϕ - e_ϕ_rhcp * sinϕ
+    e_x_lhcp = e_ρ_lhcp * cosϕ - e_ϕ_lhcp * sinϕ
+    e_y_rhcp = e_ρ_rhcp * sinϕ + e_ϕ_rhcp * cosϕ
+    e_y_lhcp = e_ρ_lhcp * sinϕ + e_ϕ_lhcp * cosϕ
+    e_z_rhcp = e_z * rhcp_phase_factor
+    e_z_lhcp = e_z * lhcp_phase_factor
+
+    fwd_phase_factor = exp(im * β * z)
+    bwd_phase_factor = conj(fwd_phase_factor)
+
+    g_fwd_rhcp = (d[1] * e_x_rhcp + d[2] * e_y_rhcp + d[3] * e_z_rhcp) * fwd_phase_factor
+    g_fwd_lhcp = (d[1] * e_x_lhcp + d[2] * e_y_lhcp + d[3] * e_z_lhcp) * fwd_phase_factor
+    g_bwd_rhcp = (d[1] * e_x_rhcp + d[2] * e_y_rhcp - d[3] * e_z_rhcp) * bwd_phase_factor
+    g_bwd_lhcp = (d[1] * e_x_lhcp + d[2] * e_y_lhcp - d[3] * e_z_lhcp) * bwd_phase_factor
+
+    return GuidedCouplingStrengths(g_fwd_rhcp, g_fwd_lhcp, g_bwd_rhcp, g_bwd_lhcp)
 end
 
 """
@@ -61,35 +114,32 @@ Compute the guided dipole-dipole and decay coefficients for the master equation 
 a cloud of atoms with positions given by the columns in `r` (in cartesian coordinates), and
 dipole moment `d` coupled to an optical fiber.
 """
-function guided_mode_coefficients(r, d, fiber, polarization_basis::CircularPolarization)
-    N = size(r)[2]
-    ω = fiber.frequency
-    dβ = fiber.propagation_constant_derivative
-    J = zeros(ComplexF64, N, N)
-    Γ = zeros(ComplexF64, N, N)
-    guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis, N)
+function guided_mode_coefficients(positions, dipole, fiber)
+    N = size(positions)[2]
+    factor = fiber.frequency * fiber.propagation_constant_derivative / 2
+    couplings = [guided_coupling_strengths(positions[:, i], dipole, fiber) for i in 1:N]
+
+    J = Matrix{ComplexF64}(undef, N, N)
+    Γ = Matrix{ComplexF64}(undef, N, N)
+    guided_mode_coefficients_fill!(J, Γ, positions, factor, couplings)
+
     return J, Γ
 end
 
-function guided_mode_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis::CircularPolarization, N)
-    for j in 1:N
-        for i in 1:N
-            J_ij = 0.0
-            Γ_ij = 0.0
-            ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-            ρ_j = sqrt(r[1, j]^2 + r[2, j]^2)
-            ϕ_i = atan(r[2, i], r[1, i])
-            ϕ_j = atan(r[2, j], r[1, j])
-            z_i = r[3, i]
-            z_j = r[3, j]
-            for l in (-1, 1), f in (-1, 1)
-                G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis)
-                G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis)
-                J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
-                Γ_ij += G_i * G_j'
-            end
-            J[i, j] = im * ω * dβ / 4 * J_ij
-            Γ[i, j] = ω * dβ / 2 * Γ_ij
+function guided_mode_coefficients_fill!(J, Γ, positions, factor, couplings)
+    for (j, gj) in enumerate(couplings)
+        z_j = positions[3, j]
+        for (i, gi) in enumerate(couplings)
+            z_i = positions[3, i]
+
+            Γ_ij_fwd = factor * (gi.fwd_rhcp * gj.fwd_rhcp' + gi.fwd_lhcp * gj.fwd_lhcp')
+            Γ_ij_bwd = factor * (gi.bwd_rhcp * gj.bwd_rhcp' + gi.bwd_lhcp * gj.bwd_lhcp')
+
+            J[i, j] = im / 2 * (sign(z_i - z_j) * Γ_ij_fwd + sign(z_j - z_i) * Γ_ij_bwd)
+            Γ[i, j] = Γ_ij_fwd + Γ_ij_bwd
+
+            J[j, i] = conj(J[i, j])
+            Γ[j, i] = conj(Γ[i, j])
         end
     end
 end
@@ -101,169 +151,160 @@ Compute the guided dipole-dipole and decay coefficients due to the modes with di
 for the master equation describing a cloud of atoms with positions given by the columns in
 `r` (in cartesian coordinates), and dipole moment `d` coupled to an optical fiber.
 """
-function guided_mode_directional_coefficients(r, d, fiber, f, polarization_basis::PolarizationBasis)
-    N = size(r)[2]
-    ω = fiber.frequency
-    dβ = fiber.propagation_constant_derivative
-    J = zeros(ComplexF64, N, N)
-    Γ = zeros(ComplexF64, N, N)
-    guided_mode_directional_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis, N, f)
-    return J, Γ
+function guided_mode_directional_coefficients(positions, dipole, fiber)
+    N = size(positions)[2]
+    factor = fiber.frequency * fiber.propagation_constant_derivative / 2
+    couplings = [guided_coupling_strengths(positions[:, i], dipole, fiber) for i in 1:N]
+
+    J₊ = Matrix{ComplexF64}(undef, N, N)
+    Γ₊ = Matrix{ComplexF64}(undef, N, N)
+    J₋ = Matrix{ComplexF64}(undef, N, N)
+    Γ₋ = Matrix{ComplexF64}(undef, N, N)
+    guided_mode_directional_coefficients_fill!(J₊, Γ₊, J₋, Γ₋, positions, factor, couplings)
+    
+    return J₊, Γ₊, J₋, Γ₋
 end
 
-function guided_mode_directional_coefficients_fill!(J, Γ, r, d, ω, dβ, fiber, polarization_basis::CircularPolarization, N, f)
-    for j in 1:N
-        for i in 1:N
-            J_ij = 0.0
-            Γ_ij = 0.0
-            ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-            ρ_j = sqrt(r[1, j]^2 + r[2, j]^2)
-            ϕ_i = atan(r[2, i], r[1, i])
-            ϕ_j = atan(r[2, j], r[1, j])
-            z_i = r[3, i]
-            z_j = r[3, j]
-            for l in (-1, 1)
-                G_i = guided_coupling_strength(ρ_i, ϕ_i, z_i, d, l, f, fiber, polarization_basis)
-                G_j = guided_coupling_strength(ρ_j, ϕ_j, z_j, d, l, f, fiber, polarization_basis)
-                J_ij -= sign(f * (z_i - z_j)) * G_i * G_j'
-                Γ_ij += G_i * G_j'
+function guided_mode_directional_coefficients_fill!(
+    J₊::Matrix{ComplexF64},
+    Γ₊::Matrix{ComplexF64},
+    J₋::Matrix{ComplexF64},
+    Γ₋::Matrix{ComplexF64},
+    positions::Matrix{<:Real},
+    factor::Real,
+    couplings::Vector{GuidedCouplingStrengths},
+)
+    for (j, gj) in enumerate(couplings)
+        z_j = positions[3, j]
+        for (i, gi) in enumerate(couplings)
+            z_i = positions[3, i]
+
+            Γ₊[i, j] = factor * (gi.fwd_rhcp * gj.fwd_rhcp' + gi.fwd_lhcp * gj.fwd_lhcp')
+            Γ₋[i, j] = factor * (gi.bwd_rhcp * gj.bwd_rhcp' + gi.bwd_lhcp * gj.bwd_lhcp')
+
+            J₊[i, j] = im / 2 * sign(z_i - z_j) * Γ₊[i, j]
+            J₋[i, j] = im / 2 * sign(z_j - z_i) * Γ₋[i, j]
+            
+            J₊[j, i] = conj(J₊[i, j])
+            Γ₊[j, i] = conj(Γ₊[i, j])
+            J₋[j, i] = conj(J₋[i, j])
+            Γ₋[j, i] = conj(Γ₋[i, j])
+        end
+    end
+end
+
+
+## Radiation Mode Coefficients ##
+
+function radiation_coupling_strengh(
+    ρ::Real,
+    ϕ::Real,
+    z::Real,
+    dipole,
+    ω,
+    βs,
+    qs,
+    m_max,
+    front_factor::Real,
+    boundary_coefficients::Array{RadiationBoundaryCoefficients,3},
+)
+
+    cosϕ = cos(ϕ)
+    sinϕ = sin(ϕ)
+    coupling_strengths = Array{ComplexF64,3}(undef, size(boundary_coefficients))
+    for (k, l) in enumerate((-1, 1))
+        for (j, β) in enumerate(βs)
+            q = qs[j]
+            propagation_phase = exp(im * β * z)
+            for (i, m) in enumerate(-m_max:m_max)
+                angular_phase = exp(im * m * ϕ)
+                coeffs = boundary_coefficients[i, j, k]
+                eρ, eϕ, ez = electric_radiation_mode_base_external(ρ, ω, β, q, m, coeffs)
+                ex = eρ * cosϕ - eϕ * sinϕ
+                ey = eρ * sinϕ + eϕ * cosϕ
+
+                g = front_factor * (dipole[1] * ex + dipole[2] * ey + dipole[3] * ez)
+                coupling_strengths[i, j, k] = g * angular_phase * propagation_phase
             end
-            J[i, j] = im * ω * dβ / 4 * J_ij
-            Γ[i, j] = ω * dβ / 2 * Γ_ij
         end
     end
+
+    return coupling_strengths
 end
 
-"""
-    radiative_coupling_strength(ρ, ϕ, z, d, l, f, fiber, polarization_basis::CircularPolarization)
-
-Compute the coupling strength between an atom and a radiation fiber mode.
-
-Implementation of Eq. (7), bottom equation from Fam Le Kien and A. Rauschenbeutel. 
-"Nanofiber-mediated chiral radiative coupling between two atoms". Phys. Rev. A 95, 023838
-(2017).
-"""
-function radiative_coupling_strength(ρ, ϕ, z, ω, d, l, m, β, fiber, polarization_basis::CircularPolarization)
-    e = electric_radiation_mode(ρ, ϕ, ω, l, m, β, fiber, polarization_basis)
-    return sqrt(ω / (4π)) * conj(d)' * e * exp(im * (m * ϕ + β * z))
-end
-
-function radiation_mode_decay_coefficients_integrand(β, p)
-    ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω, d, l, m, fiber, polarization_basis = p
-    G_i = radiative_coupling_strength(ρ_i, ϕ_i, z_i, ω, d, l, m, β, fiber, polarization_basis)
-    G_j = radiative_coupling_strength(ρ_j, ϕ_j, z_j, ω, d, l, m, β, fiber, polarization_basis)
-    return G_i * conj(G_j)
-end
-
-function modes_sum(ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, m, fiber, polarization_basis::CircularPolarization, domain)
-    Γ_ij = 0.0
-    for l in (-1, 1)
-        p = (ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, l, m, fiber, polarization_basis)
-        prob = IntegralProblem(radiation_mode_decay_coefficients_integrand, domain, p)
-        sol = solve(prob, HCubatureJL())
-        Γ_ij += 2π * sol.u
-    end
-    return Γ_ij
-end
-
-"""
-    radiation_mode_decay_coefficients(r, d, fiber, polarization_basis::CircularPolarization; abstol = 1e-3)
-
-Compute the decay coefficients for the master equation describing a cloud of atoms with
-positions given by the columns in `r` (in cartesian coordinates), and dipole moment `d`
-coupled to the radiation modes from an optical fiber.
-"""
-function radiation_mode_decay_coefficients(r, d, fiber, polarization_basis::CircularPolarization; abstol = 1e-3)
-    N = size(r)[2]
-    Γ = zeros(ComplexF64, N, N)
+function radiation_mode_decay_coefficients(
+    positions,
+    dipole,
+    fiber;
+    m_max = 10,
+    resolution = 1000,
+)
+    N = size(positions)[2]
     ω₀ = fiber.frequency
-    domain = (-ω₀ + eps(ω₀), ω₀ - eps(ω₀))
-    for i in 1:N, j in 1:N
-        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-        ρ_j = sqrt(r[1, j]^2 + r[2, j]^2)
-        ϕ_i = atan(r[2, i], r[1, i])
-        ϕ_j = atan(r[2, j], r[1, j])
-        z_i = r[3, i]
-        z_j = r[3, j]
-        m = 0
-        Γ_ij = modes_sum(ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, m, fiber, polarization_basis, domain)
-        while true
-            m += 1
-            Γ_ij_temp = modes_sum(ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, m, fiber, polarization_basis, domain)
-            Γ_ij += Γ_ij_temp
-            abs(Γ_ij_temp) < abstol && break
-        end
-        m_cutoff = m
-        for m in -m_cutoff:-1
-            Γ_ij += modes_sum(ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, m, fiber, polarization_basis, domain)
-        end
-        Γ[i, j] = Γ_ij
+    n = fiber.refractive_index
+    front_factor = sqrt(ω₀ / 4π)
+
+    ρs = sqrt.(positions[1, :].^2 .+ positions[2, :].^2)
+    ϕs = atan.(positions[2, :], positions[1, :])
+    zs = positions[3, :]
+
+    pairs = gauss_legendre_pairs(resolution)
+    weights = reshape(weight.(pairs), 1, resolution, 1)
+    βs = ω₀ * cos.(pairs)
+    hs = sqrt.(n^2 * ω₀^2 .- βs.^2)
+    qs = sqrt.(ω₀^2 .- βs.^2)
+
+    coeffs1 = bessel_hankel_surface_evaluations(m_max, hs, qs, fiber, resolution)
+    coeffs2 = radiation_auxiliary_coefficients(ω₀, βs, m_max, hs, qs, fiber, coeffs1)
+    coeffs3 = radiation_boundary_coefficients(ω₀, m_max, qs, fiber, coeffs2)
+    
+    gs = Array{ComplexF64,4}(undef, N, 2 * m_max + 1, resolution, 2)
+    for i in 1:N
+        gs[i, :, :, :] = radiation_coupling_strengh(
+            ρs[i],
+            ϕs[i],
+            zs[i],
+            dipole,
+            ω₀,
+            βs,
+            qs,
+            m_max,
+            front_factor,
+            coeffs3
+        )
     end
+
+    Γ = Matrix{ComplexF64}(undef, N, N)
+    for i in 1:N
+        for j in i:N
+            Γ[i, j] = 2π * ω₀ * sum((gs[i, :, :, :] .* conj(gs[j, :, :, :])) .* weights)
+            Γ[j, i] = conj(Γ[i, j])
+        end
+    end
+
     return Γ
 end
 
 """
-    radiation_mode_coefficients(r, d, fiber, polarization_basis::CircularPolarization; abstol = 1e-3)
+    radiation_mode_coefficients(positions, dipole, Γ₀, fiber)
 
 Compute the dipole-dipole and decay coefficients for the master equation describing
 a cloud of atoms with positions given by the columns in `r` (in cartesian coordinates), and
 dipole moment `d` coupled to the radiation modes from an optical fiber.
 """
-function radiation_mode_coefficients(r, d, fiber, polarization_basis::CircularPolarization; abstol = 1e-3)
-    N = size(r)[2]
+function radiation_mode_coefficients(positions, dipole, Γ₀, fiber)
+    N = size(positions)[2]
     ω₀ = fiber.frequency
-    γ₀ = ω₀^3 / (3π)
-    J = zeros(ComplexF64, N, N)
-    J_vacuum, _ = vacuum_coefficients(r, d, ω₀)
-    Γ = radiation_mode_decay_coefficients(r, d, fiber, polarization_basis; abstol)
+    J = Matrix{ComplexF64}(undef, N, N)
+    J_vacuum, _ = vacuum_coefficients(positions, dipole, ω₀)
+    Γ = radiation_mode_decay_coefficients(positions, dipole, fiber,)
 
-    for i in 1:N, j in 1:N
-        J[i, j] = J_vacuum[i, j] * sqrt(Γ[i, i] * Γ[j, j]) / γ₀
+    for j in 1:N
+        for i in j:N
+            J[i, j] = J_vacuum[i, j] * sqrt(Γ[i, i] * Γ[j, j]) / Γ₀
+            J[j, i] = J_vacuum[j, i] * sqrt(Γ[i, i] * Γ[j, j]) / Γ₀
+        end
     end
-    
+
     return J, Γ
-end
-
-"""
-    radiation_mode_directional_coefficients(r, d, fiber, polarization_basis::CircularPolarization, f; abstol = 1e-3)
-
-Compute the dipole-dipole and decay coefficients for the master equation describing
-a cloud of atoms with positions given by the columns in `r` (in cartesian coordinates), and
-dipole moment `d` coupled to the radiation modes with directions `f` from an optical fiber.
-"""
-function radiation_mode_directional_coefficients(r, d, fiber, polarization_basis::CircularPolarization, f; abstol = 1e-3)
-    N = size(r)[2]
-    Γ = zeros(ComplexF64, N, N)
-    ω₀ = fiber.frequency
-
-    if f == 1
-        domain = (0.0, ω₀ - eps(ω₀))
-    elseif f == -1
-        domain = (-ω₀ + eps(ω₀), 0.0)
-    else
-        throw(DomainError(f, "Directional parameter must be either +1 or -1."))
-    end
-
-    for i in 1:N, j in 1:N
-        ρ_i = sqrt(r[1, i]^2 + r[2, i]^2)
-        ρ_j = sqrt(r[1, j]^2 + r[2, j]^2)
-        ϕ_i = atan(r[2, i], r[1, i])
-        ϕ_j = atan(r[2, j], r[1, j])
-        z_i = r[3, i]
-        z_j = r[3, j]
-        m = 0
-        Γ_ij = modes_sum(ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, m, fiber, polarization_basis, domain)
-        while true
-            m += 1
-            Γ_ij_temp = modes_sum(ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, m, fiber, polarization_basis, domain)
-            Γ_ij += Γ_ij_temp
-            abs(Γ_ij_temp) < abstol && break
-        end
-        m_cutoff = m
-        for m in -m_cutoff:-1
-            Γ_ij += modes_sum(ρ_i, ϕ_i, z_i, ρ_j, ϕ_j, z_j, ω₀, d, m, fiber, polarization_basis, domain)
-        end
-        Γ[i, j] = Γ_ij
-    end
-    return Γ
 end
