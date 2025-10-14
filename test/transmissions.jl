@@ -28,15 +28,16 @@ using Test
 
     NUMBER_OF_ATOMS = (5, 10, 20)
     RADIAL_COORDINATES = (a + 0.05, a + 0.1, a + 0.2)
-    data = Matrix{Float64}(undef, resolution, length(NUMBER_OF_ATOMS) * length(RADIAL_COORDINATES))
+    N_data = length(NUMBER_OF_ATOMS) * length(RADIAL_COORDINATES)
+    data = Matrix{Float64}(undef, resolution, N_data)
     for (j, Na) in enumerate(NUMBER_OF_ATOMS)
         for (i, ρ) in enumerate(RADIAL_COORDINATES)
             cloud = LinearChain(ρ, ϕ, z₀, σx, σy, σz, lattice_constant, a, Na, Na)
             positions = atomic_cloud(cloud)
 
             J_vacuum, Γ_vacuum = vacuum_coefficients(positions, d, ω)
-            J_guided, Γ_guided = guided_mode_coefficients(positions, d, fiber)
-            J_radiation, Γ_radiation = OpticalFibers.radiation_mode_coefficients(positions, d, Γ₀, fiber)
+            J_guided, Γ_guided = guided_coefficients(positions, d, fiber)
+            J_radiation, Γ_radiation = radiation_coefficients(positions, d, Γ₀, fiber)
 
             J_total = J_guided + J_vacuum
             Γ_total = Γ_guided + Γ_radiation
