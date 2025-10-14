@@ -10,7 +10,9 @@ using Test
     peak_density = 1.0
     cloud = GaussianCloud(σ_x, σ_y, σ_z, fiber_radius, exclusion_zone, peak_density)
     N = cloud.number_of_atoms
-    peak_density_approximation = OpticalFibers.peak_density_gaussian_cloud(σ_x, σ_y, σ_z, fiber_radius, exclusion_zone, N)
+    peak_density_approximation = OpticalFibers.peak_density_gaussian_cloud(
+        σ_x, σ_y, σ_z, fiber_radius, exclusion_zone, N
+    )
     @test peak_density ≈ peak_density_approximation atol=0.1
 
     σ_x = 5.0
@@ -21,6 +23,8 @@ using Test
     peak_density = 10.0
     cloud = GaussianCloud(σ_x, σ_y, σ_z, fiber_radius, exclusion_zone, peak_density)
     N = cloud.number_of_atoms
-    peak_density_approximation = OpticalFibers.peak_density_gaussian_cloud(σ_x, σ_y, σ_z, fiber_radius, exclusion_zone, N)
+    peak_density_approximation = OpticalFibers.peak_density_gaussian_cloud(
+        σ_x, σ_y, σ_z, fiber_radius, exclusion_zone, N
+    )
     @test peak_density ≈ peak_density_approximation atol=0.1
 end

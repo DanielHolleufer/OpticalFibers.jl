@@ -72,8 +72,8 @@ end
     Γ_12_m_ρs = zeros(ComplexF64, length(ρs))
     for i in eachindex(ρs)
         r = [[a, 0.0, 0.0] [a + eps(a) + ρs[i], 0.0, eps()]]
-        J, Γ = guided_mode_coefficients(r, d, fiber)
-        _, Γ₊, _, Γ₋ = guided_mode_directional_coefficients(r, d, fiber)
+        J, Γ = guided_coefficients(r, d, fiber)
+        _, Γ₊, _, Γ₋ = guided_directional_coefficients(r, d, fiber)
         Γ_22_ρs[i] = Γ[2, 2]
         J_12_ρs[i] = J[1, 2]
         Γ_12_ρs[i] = Γ[1, 2]
@@ -92,8 +92,8 @@ end
     Γ_12_m_zs = zeros(ComplexF64, length(zs))
     for i in eachindex(zs)
         r = [[a, 0.0, 0.0] [a, 0.0, eps() + zs[i]]]
-        J, Γ = guided_mode_coefficients(r, d, fiber)
-        _, Γ₊, _, Γ₋ = guided_mode_directional_coefficients(r, d, fiber)
+        J, Γ = guided_coefficients(r, d, fiber)
+        _, Γ₊, _, Γ₋ = guided_directional_coefficients(r, d, fiber)
         Γ_22_zs[i] = Γ[2, 2]
         J_12_zs[i] = J[1, 2]
         Γ_12_zs[i] = Γ[1, 2]

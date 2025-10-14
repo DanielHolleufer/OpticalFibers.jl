@@ -420,6 +420,17 @@ function gauss_legendre_pairs(n::Integer)
     return pairs
 end
 
+function gauss_legendre_pairs_positive(n::Integer)
+    pairs = Vector{GaussLegendrePair}(undef, n)
+    
+    m = 2 * n
+    for (k, n) in enumerate(n + 1:m)
+        pairs[k] = gauss_legendre_pair(m, k)
+    end
+    
+    return pairs
+end
+
 function gauss_legendre_integration(f; resolution::Integer = 128)
     integral = 0.0
     for k in 1:resolution

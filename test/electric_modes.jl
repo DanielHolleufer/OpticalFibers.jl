@@ -113,12 +113,12 @@ end
     Ex_RHCP, Ey_RHCP, Ez_RHCP = mode_components_transverse_plane(xs, ys, RHCP)
     Ex_LHCP, Ey_LHCP, Ez_LHCP = mode_components_transverse_plane(xs, ys, LHCP)
 
-    @test Ex_HLP ≈ 1 / sqrt(2) * (Ex_RHCP + Ex_LHCP)
-    @test Ey_HLP ≈ 1 / sqrt(2) * (Ey_RHCP + Ey_LHCP)
-    @test Ez_HLP ≈ 1 / sqrt(2) * (Ez_RHCP + Ez_LHCP)
-    @test Ex_VLP ≈ -im / sqrt(2) * (Ex_RHCP - Ex_LHCP)
-    @test Ey_VLP ≈ -im / sqrt(2) * (Ey_RHCP - Ey_LHCP)
-    @test Ez_VLP ≈ -im / sqrt(2) * (Ez_RHCP - Ez_LHCP)
+    @test Ex_HLP ≈ 1 / sqrt(2) * (Ex_RHCP + Ex_LHCP) atol=1e-12
+    @test Ey_HLP ≈ 1 / sqrt(2) * (Ey_RHCP + Ey_LHCP) atol=1e-12
+    @test Ez_HLP ≈ 1 / sqrt(2) * (Ez_RHCP + Ez_LHCP) atol=1e-12
+    @test Ex_VLP ≈ -im / sqrt(2) * (Ex_RHCP - Ex_LHCP) atol=1e-12
+    @test Ey_VLP ≈ -im / sqrt(2) * (Ey_RHCP - Ey_LHCP) atol=1e-12
+    @test Ez_VLP ≈ -im / sqrt(2) * (Ez_RHCP - Ez_LHCP) atol=1e-12
 
     a = 0.25
     λ = 0.852
@@ -135,12 +135,12 @@ end
     Ex_RHCP, Ey_RHCP, Ez_RHCP = mode_components_transverse_plane(xs, ys, RHCP)
     Ex_LHCP, Ey_LHCP, Ez_LHCP = mode_components_transverse_plane(xs, ys, LHCP)
 
-    @test Ex_HLP ≈ 1 / sqrt(2) * (Ex_RHCP + Ex_LHCP)
-    @test Ey_HLP ≈ 1 / sqrt(2) * (Ey_RHCP + Ey_LHCP)
-    @test Ez_HLP ≈ 1 / sqrt(2) * (Ez_RHCP + Ez_LHCP)
-    @test Ex_VLP ≈ -im / sqrt(2) * (Ex_RHCP - Ex_LHCP)
-    @test Ey_VLP ≈ -im / sqrt(2) * (Ey_RHCP - Ey_LHCP)
-    @test Ez_VLP ≈ -im / sqrt(2) * (Ez_RHCP - Ez_LHCP)
+    @test Ex_HLP ≈ 1 / sqrt(2) * (Ex_RHCP + Ex_LHCP) atol=1e-12
+    @test Ey_HLP ≈ 1 / sqrt(2) * (Ey_RHCP + Ey_LHCP) atol=1e-12
+    @test Ez_HLP ≈ 1 / sqrt(2) * (Ez_RHCP + Ez_LHCP) atol=1e-12
+    @test Ex_VLP ≈ -im / sqrt(2) * (Ex_RHCP - Ex_LHCP) atol=1e-12
+    @test Ey_VLP ≈ -im / sqrt(2) * (Ey_RHCP - Ey_LHCP) atol=1e-12
+    @test Ez_VLP ≈ -im / sqrt(2) * (Ez_RHCP - Ez_LHCP) atol=1e-12
 end
 
 @testset "Propagating Power" begin
@@ -198,9 +198,16 @@ end
 end
 
 @testset "Auxiliary Coefficients" begin
+    gauss_legendre_pairs = OpticalFibers.gauss_legendre_pairs
     BesselHankelSurfaceEvaluations = OpticalFibers.BesselHankelSurfaceEvaluations
     bessel_hankel_surface_evaluations = OpticalFibers.bessel_hankel_surface_evaluations
+    RadiationAuxiliaryCoefficients = OpticalFibers.RadiationAuxiliaryCoefficients
     radiation_auxiliary_coefficients = OpticalFibers.radiation_auxiliary_coefficients
+
+    V_coefficient(coefficients::RadiationAuxiliaryCoefficients) = coefficients.V
+    M_coefficient(coefficients::RadiationAuxiliaryCoefficients) = coefficients.M
+    L_coefficient(coefficients::RadiationAuxiliaryCoefficients) = coefficients.L
+    η_coefficient(coefficients::RadiationAuxiliaryCoefficients) = coefficients.η
 
     besselj_derivative(m, x) = 0.5 * (besselj(m - 1, x) - besselj(m + 1, x))
     hankelh1_derivative(m, x) = 0.5 * (hankelh1(m - 1, x) - hankelh1(m + 1, x))
@@ -218,8 +225,11 @@ end
     hs = sqrt.(n^2 * ω^2 .- βs.^2)
     qs = sqrt.(ω^2 .- βs.^2)
 
-    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, fiber, resolution)
-    auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, fiber, evaluations)
+    maximum(abs.(hs[1:500] - reverse(hs[501:end])))
+    maximum(abs.(qs[1:500] - reverse(qs[501:end])))
+
+    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, a, resolution)
+    auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, a, n, evaluations)
     m_idx = (1, 5, 6, 31, 32, 49, m_max)
     β_idx = (1, 2, 3, 99, 100, 101, 499, 500, 501, 749, 750, 751, 999, resolution)
     for j in β_idx, i in m_idx,
@@ -235,7 +245,7 @@ end
         evals = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
         @test evals == evaluations[i, j]
 
-        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, fiber, evals)
+        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, evals)
         @test aux == auxiliary[i, j]
     end
 
@@ -251,8 +261,8 @@ end
     hs = sqrt.(n^2 * ω^2 .- βs.^2)
     qs = sqrt.(ω^2 .- βs.^2)
 
-    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, fiber, resolution)
-    auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, fiber, evaluations)
+    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, a, resolution)
+    auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, a, n, evaluations)
     m_idx = (1, 2, 9, 10, 34, m_max)
     β_idx = (1, 2, 5, 199, 200, 201, 499, 500, 501, resolution)
     for j in β_idx, i in m_idx,
@@ -268,12 +278,19 @@ end
         evals = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
         @test evals == evaluations[i, j]
 
-        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, fiber, evals)
+        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, evals)
         @test aux == auxiliary[i, j]
     end
 end
 
 @testset "Boundary Coefficients" begin
+    bessel_hankel_surface_evaluations = OpticalFibers.bessel_hankel_surface_evaluations
+    RadiationAuxiliaryCoefficients = OpticalFibers.RadiationAuxiliaryCoefficients
+    radiation_auxiliary_coefficients = OpticalFibers.radiation_auxiliary_coefficients
+    RadiationBoundaryCoefficients = OpticalFibers.RadiationBoundaryCoefficients
+    radiation_boundary_coefficients_arbitrary_dipole = OpticalFibers.radiation_boundary_coefficients_arbitrary_dipole
+    gauss_legendre_pairs_positive = OpticalFibers.gauss_legendre_pairs_positive
+
     a = 0.05
     λ = 0.399
     ω = 2π / λ
@@ -281,9 +298,137 @@ end
     fiber = Fiber(a, λ, SiO2)
     n = refractive_index(fiber)
 
-    m_max = 50
-    resolution = 1000
-    βs = ω * cos.(gauss_legendre_pairs(resolution))
+    m_max = 20
+    resolution = 500
+    βs = ω * reverse(cos.(gauss_legendre_pairs_positive(resolution)))
     hs = sqrt.(n^2 * ω^2 .- βs.^2)
     qs = sqrt.(ω^2 .- βs.^2)
+    βs_full = [-reverse(βs); βs]
+
+    A_coefficient(coefficients::RadiationBoundaryCoefficients) = coefficients.A
+    B_coefficient(coefficients::RadiationBoundaryCoefficients) = coefficients.B
+    C_coefficient(coefficients::RadiationBoundaryCoefficients) = coefficients.C
+    D_coefficient(coefficients::RadiationBoundaryCoefficients) = coefficients.D
+
+    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, a, resolution)
+    auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, a, n, evaluations)
+    boundary = radiation_boundary_coefficients_arbitrary_dipole(ω, m_max, βs, qs, a, auxiliary)
+
+    A_coefficients1 = A_coefficient.(boundary[1:m_max + 1, :, 1])
+    A_coefficients2 = A_coefficient.(reverse(boundary[m_max + 1:end, :, 2], dims=1))
+    @test A_coefficients1 == A_coefficients2
+
+    B_coefficients1 = B_coefficient.(boundary[:, :, 1])
+    B_coefficients2 = B_coefficient.(boundary[:, :, 2])
+    @test B_coefficients1 == -B_coefficients2
+
+    C_coefficients1 = C_coefficient.(boundary[1:m_max + 1, :, 1])
+    C_coefficients2 = C_coefficient.(reverse(boundary[m_max + 1:end, :, 2], dims=1))
+    @test C_coefficients1 == C_coefficients2
+
+    C_coefficients3 = C_coefficient.(boundary[1:m_max + 1, :, 2])
+    C_coefficients4 = C_coefficient.(reverse(boundary[m_max + 1:end, :, 1], dims=1))
+    @test C_coefficients3 == C_coefficients4
+end
+
+@testset "Radiation Mode Symmetries" begin
+    # We test the following symmetries given in eqs. (B8), (B9), and (B10) from
+    # 10.1103/PhysRevA.95.023838.
+    a = 0.05
+    λ = 0.399
+    ω = 2π / λ
+    SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
+    fiber = Fiber(a, λ, SiO2)
+    ρ = 0.1
+    β = ω / 2
+    m = 0
+    eρ1, eϕ1, ez1 = electric_radiation_mode_base(ρ, ω, β, m, 1, fiber)
+    eρ2, eϕ2, ez2 = electric_radiation_mode_base(ρ, ω, -β, m, -1, fiber)
+    eρ3, eϕ3, ez3 = electric_radiation_mode_base(ρ, ω, β, -m, -1, fiber)
+    @test eρ1 == -eρ2
+    @test eϕ1 == -eϕ2
+    @test ez1 == ez2
+    @test eρ1 == (-1)^m * eρ3
+    @test eϕ1 == (-1)^(m + 1) * eϕ3
+    @test ez1 == (-1)^m * ez3
+    @test eρ1' == -eρ1
+    @test eρ2' == -eρ2
+    @test eρ3' == -eρ3
+    @test isreal(eϕ1)
+    @test isreal(eϕ2)
+    @test isreal(eϕ3)
+    @test isreal(ez1)
+    @test isreal(ez2)
+    @test isreal(ez3)
+
+    ρ = 0.21
+    β = sqrt(2) / 3 * ω
+    m = 1
+    eρ1, eϕ1, ez1 = electric_radiation_mode_base(ρ, ω, β, m, 1, fiber)
+    eρ2, eϕ2, ez2 = electric_radiation_mode_base(ρ, ω, -β, m, -1, fiber)
+    eρ3, eϕ3, ez3 = electric_radiation_mode_base(ρ, ω, β, -m, -1, fiber)
+    @test eρ1 == -eρ2
+    @test eϕ1 == -eϕ2
+    @test ez1 == ez2
+    @test eρ1 == (-1)^m * eρ3
+    @test eϕ1 == (-1)^(m + 1) * eϕ3
+    @test ez1 == (-1)^m * ez3
+    @test eρ1' == -eρ1
+    @test eρ2' == -eρ2
+    @test eρ3' == -eρ3
+    @test isreal(eϕ1)
+    @test isreal(eϕ2)
+    @test isreal(eϕ3)
+    @test isreal(ez1)
+    @test isreal(ez2)
+    @test isreal(ez3)
+
+    a = 0.25
+    λ = 0.852
+    ω = 2π / λ
+    SiO2 = Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2)
+    fiber = Fiber(a, λ, SiO2)
+    ρ = 0.3
+    β = -ω / 10
+    m = 2
+    eρ1, eϕ1, ez1 = electric_radiation_mode_base(ρ, ω, β, m, 1, fiber)
+    eρ2, eϕ2, ez2 = electric_radiation_mode_base(ρ, ω, -β, m, -1, fiber)
+    eρ3, eϕ3, ez3 = electric_radiation_mode_base(ρ, ω, β, -m, -1, fiber)
+    @test eρ1 == -eρ2
+    @test eϕ1 == -eϕ2
+    @test ez1 == ez2
+    @test eρ1 == (-1)^m * eρ3
+    @test eϕ1 == (-1)^(m + 1) * eϕ3
+    @test ez1 == (-1)^m * ez3
+    @test eρ1' == -eρ1
+    @test eρ2' == -eρ2
+    @test eρ3' == -eρ3
+    @test isreal(eϕ1)
+    @test isreal(eϕ2)
+    @test isreal(eϕ3)
+    @test isreal(ez1)
+    @test isreal(ez2)
+    @test isreal(ez3)
+
+    ρ = 1.01
+    β = 0.99 * ω
+    m = -21
+    eρ1, eϕ1, ez1 = electric_radiation_mode_base(ρ, ω, β, m, 1, fiber)
+    eρ2, eϕ2, ez2 = electric_radiation_mode_base(ρ, ω, -β, m, -1, fiber)
+    eρ3, eϕ3, ez3 = electric_radiation_mode_base(ρ, ω, β, -m, -1, fiber)
+    @test eρ1 == -eρ2
+    @test eϕ1 == -eϕ2
+    @test ez1 == ez2
+    @test eρ1 == (-1)^m * eρ3
+    @test eϕ1 == (-1)^(m + 1) * eϕ3
+    @test ez1 == (-1)^m * ez3
+    @test eρ1' == -eρ1
+    @test eρ2' == -eρ2
+    @test eρ3' == -eρ3
+    @test isreal(eϕ1)
+    @test isreal(eϕ2)
+    @test isreal(eϕ3)
+    @test isreal(ez1)
+    @test isreal(ez2)
+    @test isreal(ez3)
 end
