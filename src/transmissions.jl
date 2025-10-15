@@ -60,7 +60,7 @@ function coupling_strengths(d, positions, mode::GuidedMode)
 end
 
 function rabi_frequency(ρ, ϕ, z, d, field::GuidedField)
-    ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, field)
+    ex, ey, ez = electric_guided_field_cartesian(ρ, ϕ, z, field)
     rabi = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
     return rabi
 end
@@ -74,7 +74,7 @@ function rabi_frequencies(d, positions, field::GuidedField)
         z = positions[3, i]
         ρ = sqrt(x^2 + y^2)
         ϕ = atan(y, x)
-        ex, ey, ez = electric_guided_field_cartesian_components(ρ, ϕ, z, field)
+        ex, ey, ez = electric_guided_field_cartesian(ρ, ϕ, z, field)
         rabis[i] = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
     end
     return rabis

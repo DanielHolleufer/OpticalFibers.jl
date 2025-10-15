@@ -94,7 +94,7 @@ function _susceptibility(
 end
 
 function decay_rate_guided(ρ, ϕ, d, mode, front_factor)
-    e_x, e_y, e_z = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode)
+    e_x, e_y, e_z = electric_guided_mode_profile_cartesian(ρ, ϕ, mode)
     g = front_factor * (d[1] * e_x + d[2] * e_y + d[3] * e_z)
     return 2π * abs2(g)
 end
@@ -110,10 +110,10 @@ function decay_rate_guided_total(ρ, ϕ, d, fiber, front_factor)
     mode_yp = GuidedMode(fiber, ly, f_p)
     mode_ym = GuidedMode(fiber, ly, f_m)
 
-    e_x1, e_y1, e_z1 = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode_xp)
-    e_x2, e_y2, e_z2 = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode_xm)
-    e_x3, e_y3, e_z3 = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode_yp)
-    e_x4, e_y4, e_z4 = electric_guided_mode_profile_cartesian_components(ρ, ϕ, mode_ym)
+    e_x1, e_y1, e_z1 = electric_guided_mode_profile_cartesian(ρ, ϕ, mode_xp)
+    e_x2, e_y2, e_z2 = electric_guided_mode_profile_cartesian(ρ, ϕ, mode_xm)
+    e_x3, e_y3, e_z3 = electric_guided_mode_profile_cartesian(ρ, ϕ, mode_yp)
+    e_x4, e_y4, e_z4 = electric_guided_mode_profile_cartesian(ρ, ϕ, mode_ym)
 
     g1 = d[1] * e_x1 + d[2] * e_y1 + d[3] * e_z1
     g2 = d[1] * e_x2 + d[2] * e_y2 + d[3] * e_z2
@@ -137,6 +137,7 @@ function probe_detuning_range(
     resolution::Integer=500,
     range_scale_factor::Real=4.0,
 )
+    Γ_eg = atom.decay_rate_lower
     Δ_r = atom.detuning_upper
     p = (probe, control, atom, cloud)
     optprob = OptimizationFunction(_transmittance)
@@ -148,8 +149,13 @@ function probe_detuning_range(
     dark_state_transmittance = _transmittance([-Δ_r], p)
     half_min = (T_min + dark_state_transmittance) / 2
 
+    if abs(Δ_min + Δ_r) / Γ_eg  < 1e-4
+        lb = [2 * Δ_min]
+    else
+        lb = [-Inf]
+    end
     optprob_fwhm = OptimizationFunction((u, p) -> abs(_transmittance(u, p) - half_min))
-    prob_left = OptimizationProblem(optprob_fwhm, sol.u, p, lb = [-Inf], ub = sol.u)
+    prob_left = OptimizationProblem(optprob_fwhm, sol.u, p, lb = lb, ub = sol.u)
     sol_left = solve(prob_left, NLopt.LN_NELDERMEAD())
     Δ_fwhm_left = sol_left.u[1]
 

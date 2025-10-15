@@ -4,8 +4,8 @@ export Material
 export Fiber, radius, wavelength, frequency, material, refractive_index,
     propagation_constant, propagation_constant_derivative, normalized_frequency,
     effective_refractive_index
-export Polarization, polarization, LinearPolarization, CircularPolarization, GuidedMode,
-    GuidedField, direction, ExternalField, electric_guided_mode_base,
+export ElectricField, Polarization, polarization, LinearPolarization, CircularPolarization,
+    GuidedMode, GuidedField, direction, ExternalField, electric_guided_mode_base,
     electric_guided_mode_profile_cylindrical, electric_guided_mode_profile_cartesian,
     electric_guided_field_cartesian, electric_radiation_mode_base,
     electric_radiation_mode_profile_cartesian
