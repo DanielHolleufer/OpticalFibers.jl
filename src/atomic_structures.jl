@@ -47,11 +47,19 @@ function Base.show(io::IO, stark_shift::StarkShifts)
     print(io,   "Rydberg state: $(stark_shift.rydberg_state)")
 end
 
-const ytterbium_stark_shift_1070nm_natural_units = StarkShifts(-1.4985747295574912e-10,
-                                                                4.543001599281525e-9,
-                                                               -4.529096478514157e-11)
+function stark_shift_potentials(intensity::Real, shifts::StarkShifts)
+    ground_state_potential = intensity * shifts.ground_state
+    excited_state_potential = intensity * shifts.excited_state
+    rydberg_state_potential = intensity * shifts.rydberg_state
+    return (ground_state_potential, excited_state_potential, rydberg_state_potential)
+end
+
+const ytterbium_stark_shift_1070nm_natural_units = StarkShifts(
+    -1.4985747295574912e-10, 4.543001599281525e-9, -4.529096478514157e-11
+)
 
 const ytterbium_stark_shift_395nm_natural_units = Dict{Int, StarkShifts}(
+    0 => StarkShifts(0.0, 0.0, 0.0),
     30 => StarkShifts(8.195214809828048e-9, -8.249545619623155e-9, -2.0460391986270098e-10),
     31 => StarkShifts(7.534006067466907e-9, -7.588669768604423e-9, -2.0460391986270098e-10),
     32 => StarkShifts(7.0259803273812986e-9, -7.0809429754042914e-9, -2.0460391986270098e-10),

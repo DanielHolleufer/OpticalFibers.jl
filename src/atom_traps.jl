@@ -23,8 +23,12 @@ function CrossedTweezerTrap(
     wavelength::Real,
     stark_shifts::StarkShifts,
 )
-    return CrossedTweezerTrap(float(waist), float(power_per_beam), float(wavelength), 
-                              stark_shifts)
+    return CrossedTweezerTrap(
+        float(waist),
+        float(power_per_beam),
+        float(wavelength), 
+        stark_shifts
+    )
 end
 
 function Base.show(io::IO, trap::CrossedTweezerTrap)
@@ -69,8 +73,7 @@ end
 Compute the potential of the trap at position (`x`, `y`, `z`).
 """
 function trap_potential(x::Real,y::Real, z::Real, trap::CrossedTweezerTrap)
-    stark_shift = trap.stark_shifts.ground_state
-    return stark_shift * trap_intensity(x, y, z, trap)
+    return stark_shift_potentials(trap_intensity(x, y, z, trap), trap.stark_shifts)
 end
 
 struct FiberTrap <: AtomTrap
@@ -78,35 +81,29 @@ struct FiberTrap <: AtomTrap
     stark_shifts::StarkShifts
 end
 
-function electric_guided_field_cartesian_components(
+function electric_guided_field_cartesian(
     ρ::Real,
     ϕ::Real,
     z::Real,
     t::Real,
     trap::FiberTrap,
 )
-    return electric_guided_field_cartesian_components(ρ, ϕ, z, t, trap.field)
+    return electric_guided_field_cartesian(ρ, ϕ, z, t, trap.field)
 end
 
-function electric_guided_field_cartesian_components(
-    ρ::Real,
-    ϕ::Real,
-    z::Real,
-    trap::FiberTrap,
-)
-    return electric_guided_field_cartesian_components(ρ, ϕ, z, trap.field)
+function electric_guided_field_cartesian(ρ::Real, ϕ::Real, z::Real, trap::FiberTrap)
+    return electric_guided_field_cartesian(ρ, ϕ, z, trap.field)
 end
 
 function trap_intensity(x::Real, y::Real, z::Real, trap::FiberTrap)
     ρ = sqrt(x^2 + y^2)
     ϕ = atan(y, x)
-    e_x, e_y, e_z = electric_guided_field_cartesian_components(ρ, ϕ, z, trap)
+    e_x, e_y, e_z = electric_guided_field_cartesian(ρ, ϕ, z, trap)
     return abs2(e_x) + abs2(e_y) + abs2(e_z)
 end
 
 function trap_potential(x::Real, y::Real, z::Real, trap::FiberTrap)
-    stark_shift = trap.stark_shifts.ground_state
-    return stark_shift * trap_intensity(x, y, z, trap)
+    return stark_shift_potentials(trap_intensity(x, y, z, trap), trap.stark_shift)
 end
 
 struct CrossedTweezerFiberTrap <: AtomTrap
@@ -117,5 +114,5 @@ end
 function trap_potential(x::Real, y::Real, z::Real, trap::CrossedTweezerFiberTrap)
     tweezer_potential = trap_potential(x, y, z, trap.tweezer_trap)
     fiber_potential = trap_potential(x, y, z, trap.fiber_trap)
-    return tweezer_potential + fiber_potential
+    return tweezer_potential .+ fiber_potential
 end
