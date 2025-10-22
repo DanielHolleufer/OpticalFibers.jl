@@ -139,7 +139,7 @@ function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::AbstractArray, gs
 end
 
 """
-    transmission_two_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
+    transmission_two_level(Δes, fiber, gs::AbstractArray, J, Γ)
 
 Compute the transmission of a cloud of two level atoms surrounding an optical fiber for 
 each value of the detuning given by `Δes`.

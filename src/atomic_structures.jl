@@ -1,4 +1,14 @@
-struct ThreeLevelAtom
+abstract type NLevelAtom end
+
+struct TwoLevelAtom <: NLevelAtom
+    decay_rate::Float64
+    dipole_moment::Vector{ComplexF64}
+    function TwoLevelAtom(decay_rate::Real, dipole_moment::Vector{<:Number})
+        return new(float(decay_rate), complex(float(dipole_moment)))
+    end
+end
+
+struct ThreeLevelAtom <: NLevelAtom
     detuning_upper::Float64
     decay_rate_lower::Float64
     decay_rate_upper::Float64

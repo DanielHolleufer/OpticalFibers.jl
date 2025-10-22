@@ -9,8 +9,8 @@ export ElectricField, Polarization, polarization, LinearPolarization, CircularPo
     electric_guided_mode_profile_cylindrical, electric_guided_mode_profile_cartesian,
     electric_guided_field_cartesian, electric_radiation_mode_base,
     electric_radiation_mode_profile_cartesian
-export ThreeLevelAtom, StarkShifts, ytterbium_stark_shift_1070nm_natural_units, 
-    ytterbium_stark_shift_395nm_natural_units
+export NLevelAtom, TwoLevelAtom, ThreeLevelAtom, StarkShifts,
+    ytterbium_stark_shift_1070nm_natural_units, ytterbium_stark_shift_395nm_natural_units
 export AtomTrap, CrossedTweezerTrap, FiberTrap, CrossedTweezerFiberTrap, trap_intensity,
     trap_potential
 export AtomicCloud, atomic_density_distribution, GaussianCloud, atomic_density_distribution,

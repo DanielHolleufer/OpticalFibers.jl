@@ -18,16 +18,10 @@ struct CrossedTweezerTrap <: AtomTrap
 end
 
 function CrossedTweezerTrap(
-    waist::Real,
-    power_per_beam::Real,
-    wavelength::Real,
-    stark_shifts::StarkShifts,
+    waist::Real, power_per_beam::Real, wavelength::Real, stark_shifts::StarkShifts,
 )
     return CrossedTweezerTrap(
-        float(waist),
-        float(power_per_beam),
-        float(wavelength), 
-        stark_shifts
+        float(waist), float(power_per_beam), float(wavelength), stark_shifts
     )
 end
 
