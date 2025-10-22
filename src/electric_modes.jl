@@ -150,9 +150,7 @@ function electric_guided_mode_base(ρ::Real, fiber::Fiber)
 end
 
 function electric_guided_mode_profile_cylindrical(
-    ρ::Real,
-    ϕ::Real,
-    mode::GuidedMode{LinearPolarization},
+    ρ::Real, ϕ::Real, mode::GuidedMode{LinearPolarization}
 )
     f = direction(mode)
     ϕ₀ = polarization(mode)
@@ -165,9 +163,7 @@ function electric_guided_mode_profile_cylindrical(
 end
 
 function electric_guided_mode_profile_cylindrical(
-    ρ::Real,
-    ϕ::Real,
-    mode::GuidedMode{CircularPolarization},
+    ρ::Real, ϕ::Real, mode::GuidedMode{CircularPolarization}
 )
     f = direction(mode)
     l = polarization(mode)
@@ -198,11 +194,7 @@ Compute the cartesian components of a guided electric field at
 position ``(ρ, ϕ, z)`` and time ``t`` with the given ``power``.
 """
 function electric_guided_field_cartesian(
-    ρ::Real,
-    ϕ::Real,
-    z::Real,
-    t::Real,
-    field::GuidedField,
+    ρ::Real, ϕ::Real, z::Real, t::Real, field::GuidedField
 )
     f = direction(field)
     ω = frequency(field)
@@ -368,11 +360,7 @@ function Base.show(io::IO, coefficients::RadiationBoundaryCoefficients)
 end
 
 function radiation_boundary_coefficients(
-    a::Real,
-    ω::Real,
-    l::Integer,
-    q::Real,
-    coefficients::RadiationAuxiliaryCoefficients,
+    a::Real, ω::Real, l::Integer, q::Real, coefficients::RadiationAuxiliaryCoefficients
 )
     V = coefficients.V
     M = coefficients.M
@@ -562,12 +550,7 @@ function electric_radiation_mode_base_internal(
 end
 
 function electric_radiation_mode_base_internal(
-    ρ::Float64,
-    ω::Float64,
-    β::Float64,
-    m::Integer,
-    l::Integer,
-    fiber::Fiber,
+    ρ::Float64, ω::Float64, β::Float64, m::Integer, l::Integer, fiber::Fiber
 )
     a = fiber.radius
     n = fiber.refractive_index
@@ -608,12 +591,7 @@ function electric_radiation_mode_base_external(
 end
 
 function electric_radiation_mode_base_external(
-    ρ::Float64,
-    ω::Float64,
-    β::Float64,
-    m::Integer, 
-    l::Integer,
-    fiber::Fiber,
+    ρ::Float64, ω::Float64, β::Float64, m::Integer, l::Integer, fiber::Fiber
 )
     a = fiber.radius
     n = fiber.refractive_index
@@ -636,12 +614,7 @@ function electric_radiation_mode_base_external(
 end
 
 function electric_radiation_mode_base(
-    ρ::Float64,
-    ω::Float64,
-    β::Float64,
-    m::Integer,
-    l::Integer,
-    fiber::Fiber,
+    ρ::Float64, ω::Float64, β::Float64, m::Integer, l::Integer, fiber::Fiber
 )
     if ρ < fiber.radius
         return electric_radiation_mode_base_internal(ρ, ω, β, m, l, fiber)
@@ -668,13 +641,7 @@ function electric_radiation_mode_base(
 end
 
 function electric_radiation_mode_profile_cartesian(
-    ρ::Float64,
-    ϕ::Float64,
-    ω::Float64,
-    β::Float64,
-    m::Integer,
-    l::Integer,
-    fiber::Fiber,
+    ρ::Float64, ϕ::Float64, ω::Float64, β::Float64, m::Integer, l::Integer, fiber::Fiber
 )
     e_ρ, e_ϕ, e_z = electric_radiation_mode_base(ρ, ω, β, m, l, fiber) .* exp(im * m * ϕ)
 

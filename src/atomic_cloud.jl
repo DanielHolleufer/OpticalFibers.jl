@@ -201,8 +201,10 @@ function atomic_cloud(cloud::GaussianCloud)
     lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
     upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
     
-    samples = box_rejection_sampling(atomic_density_distribution, lower, upper, N, cloud;
-                                     r0=[fiber_radius + exclusion_zone, 0.0, 0.0])
+    samples = box_rejection_sampling(
+        atomic_density_distribution, lower, upper, N, cloud;
+        r0=[fiber_radius + exclusion_zone, 0.0, 0.0]
+    )
     
     return samples
 end
@@ -231,9 +233,7 @@ function crossed_tweezer_fiber_cloud_normalization(p)
     L = 2 * trap.tweezer_trap.waist
     domain = ([-L, -L, -L], [L, L, L])
     prob = IntegralProblem(
-        (u, p) -> crossed_tweezer_fiber_cloud_unnormalized(u..., p),
-        domain,
-        cloud,
+        (u, p) -> crossed_tweezer_fiber_cloud_unnormalized(u..., p), domain, cloud
     )
     sol = solve(prob, CubaDivonne())
     return inv(sol.u)
@@ -318,9 +318,7 @@ function atomic_density_normalization_constant_approximation(
     L = 2 * cloud.trap.tweezer_trap.waist
     domain = ([-L, -L, -L], [L, L, L])
     prob = IntegralProblem(
-        atomic_density_distribution_approximation_unnormalized,
-        domain,
-        cloud,
+        atomic_density_distribution_approximation_unnormalized, domain, cloud
     )
     sol = solve(prob, CubaDivonne())
     return sol.u

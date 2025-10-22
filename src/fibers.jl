@@ -157,7 +157,9 @@ and
 + e_{\\phi} \\hat{\\mathrm{\\mathbf{\\phi}}} + e_{z} \\hat{\\mathrm{\\mathbf{z}}}``,
 where the components are given by [`electric_guided_mode_cylindrical_base_components`](@ref).
 """
-function guided_mode_normalization_constant(a::Real, n::Real, β::Real, h::Real, q::Real, s::Real)
+function guided_mode_normalization_constant(
+    a::Real, n::Real, β::Real, h::Real, q::Real, s::Real
+)
     j0 = besselj0(h * a)
     j1 = besselj1(h * a)
     j2 = besselj(2, h * a)
