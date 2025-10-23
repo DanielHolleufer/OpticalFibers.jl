@@ -8,6 +8,25 @@ struct TwoLevelAtom <: NLevelAtom
     end
 end
 
+function Base.show(io::IO, atom::TwoLevelAtom)
+    println(io, "Two level atom with parameters:")    
+    println(io, "Γ = $(atom.decay_rate)")
+    print(io, "d = $(atom.dipole_moment)")
+end
+
+function Base.:(==)(atom1::TwoLevelAtom, atom2::TwoLevelAtom)
+    eq1 = isequal(atom1.decay_rate, atom2.decay_rate)
+    eq2 = isequal(atom1.dipole_moment, atom2.dipole_moment)
+    return eq1 && eq2
+end
+
+function Base.hash(atom::TwoLevelAtom, h::UInt)
+    h = hash(TwoLevelAtom, h)
+    h = hash(atom.decay_rate, h)
+    h = hash(atom.dipole_moment, h)
+    return h
+end
+
 struct ThreeLevelAtom <: NLevelAtom
     detuning_upper::Float64
     decay_rate_lower::Float64
@@ -40,6 +59,25 @@ function Base.show(io::IO, atom::ThreeLevelAtom)
     print(io, "d_re = $(atom.dipole_moment_upper)")
 end
 
+function Base.:(==)(atom1::ThreeLevelAtom, atom2::ThreeLevelAtom)
+    eq1 = isequal(atom1.detuning_upper, atom2.detuning_upper)
+    eq2 = isequal(atom1.decay_rate_lower, atom2.decay_rate_lower)
+    eq3 = isequal(atom1.decay_rate_upper, atom2.decay_rate_upper)
+    eq4 = isequal(atom1.dipole_moment_lower, atom2.dipole_moment_lower)
+    eq5 = isequal(atom1.dipole_moment_upper, atom2.dipole_moment_upper)
+    return eq1 && eq2 && eq3 && eq4 && eq5
+end
+
+function Base.hash(atom::ThreeLevelAtom, h::UInt)
+    h = hash(ThreeLevelAtom, h)
+    h = hash(atom.detuning_upper, h)
+    h = hash(atom.decay_rate_lower, h)
+    h = hash(atom.decay_rate_upper, h)
+    h = hash(atom.dipole_moment_lower, h)
+    h = hash(atom.dipole_moment_upper, h)
+    return h
+end
+
 struct StarkShifts
     ground_state::Float64
     excited_state::Float64
@@ -47,7 +85,7 @@ struct StarkShifts
 end
 
 function StarkShifts(ground_state::Real, excited_state::Real, rydberg_state::Real)
-    return StarkShifts(Float64(ground_state), Float64(excited_state), Float64(rydberg_state))
+    return StarkShifts(float(ground_state), float(excited_state), float(rydberg_state))
 end
 
 function Base.show(io::IO, stark_shift::StarkShifts)
