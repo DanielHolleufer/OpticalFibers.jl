@@ -49,6 +49,7 @@ function Base.show(io::IO, mode::GuidedMode)
     print(io, "Propagation direction index f = $(mode.f)")
 end
 
+wavelength(mode::GuidedMode) = wavelength(mode.fiber)
 direction(mode::GuidedMode) = mode.f
 polarization(mode::GuidedMode) = polarization(mode.polarization)
 frequency(mode::GuidedMode) = frequency(mode.fiber)
@@ -73,6 +74,7 @@ function Base.show(io::IO, field::GuidedField)
     print(io, "Power: $(field.power)")
 end
 
+wavelength(field::GuidedField) = wavelength(field.mode)
 direction(field::GuidedField) = direction(field.mode)
 polarization(field::GuidedField) = polarization(field.mode)
 frequency(field::GuidedField) = frequency(field.mode)

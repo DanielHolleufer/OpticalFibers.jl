@@ -5,28 +5,32 @@ function transmission_coefficient_continuous_propagation(
     atom::ThreeLevelAtom,
     cloud::GaussianCloud,
 )
+    λ = wavelength(probe)
     ω = frequency(probe)
     db = propagation_constant_derivative(probe)
     factor = sqrt(ω * db / (4 * π))
     p = (Δ_e, probe, control, atom, cloud, factor)
     a = radius(probe)
-    σ_r = cloud.σ_x
 
-    domain_1 = ([a + eps(a), 0.0], [σ_r, 2π])
+    domain_1 = ([a + eps(a), 0.0], [λ, 2π])
     prob_1 = IntegralProblem(continuous_propagation_integrand, domain_1, p)
     sol_1 = solve(prob_1, HCubatureJL(), abstol=1e-9, reltol=1e-9)
 
-    domain_2 = ([σ_r, 0.0], [5 * σ_r, 2π])
+    domain_2 = ([λ, 0.0], [10λ, 2π])
     prob_2 = IntegralProblem(continuous_propagation_integrand, domain_2, p)
     sol_2 = solve(prob_2, HCubatureJL(), abstol=1e-9, reltol=1e-9)
 
-    domain_3 = ([5 * σ_r, 0.0], [Inf, 2π])
+    domain_3 = ([10λ, 0.0], [100λ, 2π])
     prob_3 = IntegralProblem(continuous_propagation_integrand, domain_3, p)
     sol_3 = solve(prob_3, HCubatureJL(), abstol=1e-9, reltol=1e-9)
 
+    domain_4 = ([100λ, 0.0], [1000λ, 2π])
+    prob_4 = IntegralProblem(continuous_propagation_integrand, domain_4, p)
+    sol_4 = solve(prob_4, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+
     N = cloud.number_of_atoms
 
-    return exp(N * (sol_1.u + sol_2.u + sol_3.u))
+    return exp(N * (sol_1.u + sol_2.u + sol_3.u + sol_4.u))
 end
 
 function transmission_coefficient_continuous_propagation(
