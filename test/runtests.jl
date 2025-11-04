@@ -6,6 +6,7 @@ using Test
 DocMeta.setdocmeta!(OpticalFibers, :DocTestSetup, :(using OpticalFibers); recursive=true)
 doctest(OpticalFibers; manual = false)
 
+include("atomic_structures.jl")
 include("fibers.jl")
 include("electric_modes.jl")
 include("propagation_constant.jl")

@@ -12,13 +12,21 @@ function transmission_coefficient_continuous_propagation(
     a = radius(probe)
     σ_r = cloud.σ_x
 
-    domain = ([a + eps(a), 0.0], [5 * σ_r, 2π])
-    prob = IntegralProblem(continuous_propagation_integrand, domain, p)
-    sol = solve(prob, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+    domain_1 = ([a + eps(a), 0.0], [σ_r, 2π])
+    prob_1 = IntegralProblem(continuous_propagation_integrand, domain_1, p)
+    sol_1 = solve(prob_1, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+
+    domain_2 = ([σ_r, 0.0], [5 * σ_r, 2π])
+    prob_2 = IntegralProblem(continuous_propagation_integrand, domain_2, p)
+    sol_2 = solve(prob_2, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+
+    domain_3 = ([5 * σ_r, 0.0], [Inf, 2π])
+    prob_3 = IntegralProblem(continuous_propagation_integrand, domain_3, p)
+    sol_3 = solve(prob_3, HCubatureJL(), abstol=1e-9, reltol=1e-9)
 
     N = cloud.number_of_atoms
 
-    return exp(N * sol.u)
+    return exp(N * (sol_1.u + sol_2.u + sol_3.u))
 end
 
 function transmission_coefficient_continuous_propagation(
