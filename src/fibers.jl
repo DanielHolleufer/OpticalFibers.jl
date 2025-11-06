@@ -28,7 +28,9 @@ struct Fiber{T<:Real}
         K1 = besselk1(q * radius)
         dJ1 = 1 / 2 * (besselj0(h * radius) - besselj(2, h * radius))
         dK1 =  -1 / 2 * (besselk0(q * radius) + besselk(2, q * radius))
-        s = (1 / (h^2 * radius^2) + 1 / (q^2 * radius^2)) / (dJ1 / (h * radius * J1) + dK1 / (q * radius * K1))
+        s_numerator = (1 / (h^2 * radius^2) + 1 / (q^2 * radius^2))
+        s_denominator = (dJ1 / (h * radius * J1) + dK1 / (q * radius * K1))
+        s = s_numerator / s_denominator
         C = guided_mode_normalization_constant(radius, n, β, h, q, s)
 
         return new{T}(radius, wavelength, ω, material, n, β, dβ, h, q, s, C)
@@ -52,7 +54,7 @@ Return the radius of the fiber in micrometers.
 
 # Examples
 ```jldoctest
-julia> fiber = Fiber(0.1, 0.4, Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2));
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
 
 julia> radius(fiber)
 0.1
@@ -67,7 +69,7 @@ Return the wavelength of the fiber mode in micrometers.
 
 # Examples
 ```jldoctest
-julia> fiber = Fiber(0.1, 0.4, Material(0.6961663, 0.4079426, 0.8974794, 0.0684043^2, 0.1162414^2, 9.896161^2));
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
 
 julia> wavelength(fiber)
 0.4
@@ -78,7 +80,16 @@ wavelength(fiber::Fiber) = fiber.wavelength
 """
     frequency(fiber::Fiber)
 
-Return the frequency of the fiber mode.
+Return the angular frequency of the fiber mode in units of inverse micrometers with the
+speed of light `c = 1`.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> frequency(fiber)
+15.707963267948966
+```
 """
 frequency(fiber::Fiber) = fiber.frequency
 
@@ -86,6 +97,20 @@ frequency(fiber::Fiber) = fiber.frequency
     material(fiber::Fiber)
 
 Return the material of the fiber.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> material(fiber)
+Material with Sellmeier coefficients:
+B₁ = 0.6961663
+B₂ = 0.4079426
+B₃ = 0.8974794
+C₁ = 0.00467914825849μm²
+C₂ = 0.013512063073959999μm²
+C₃ = 97.93400253792099μm²
+```
 """
 material(fiber::Fiber) = fiber.material
 
@@ -94,32 +119,82 @@ material(fiber::Fiber) = fiber.material
 
 Return the refractive index of the fiber for light with the same wavelength as the fiber
 mode.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> refractive_index(fiber)
+1.4701161185594052
+```
 """
 refractive_index(fiber::Fiber) = fiber.refractive_index
 
 """
     propagation_constant(fiber::Fiber)
 
-Return the propagation constant of the fiber for light with the same wavelength as the fiber
-mode.
+Return the propagation constant of the fiber in inverse micrometers for light with the same
+wavelength as the fiber mode.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> propagation_constant(fiber)
+17.242890161273014
+```
 """
 propagation_constant(fiber::Fiber) = fiber.propagation_constant
 
 """
     propagation_constant_derivative(fiber::Fiber)
 
-Return the derivative of the propagation constant of the fiber evaluated at the the
-wavelength of the fiber mode.
+Return the derivative of the propagation constant with respect to angular frequency of the
+fiber evaluated at the angular frequency of the fiber mode.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> propagation_constant_derivative(fiber)
+1.4431087436150847
+```
 """
 propagation_constant_derivative(fiber::Fiber) = fiber.propagation_constant_derivative
+
+"""
+    group_velocity(fiber::Fiber)
+
+Return the group velocity of the fiber mode in units of the speed of light `c = 1`.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> group_velocity(fiber)
+0.6929484728191256
+```
+"""
+group_velocity(fiber) = inv(propagation_constant_derivative(fiber))
 
 """
     normalized_frequency(fiber::Fiber)
 
 Return the normalized frequency of the fiber mode.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> normalized_frequency(fiber)
+1.692704437607302
+```
 """
 function normalized_frequency(fiber::Fiber)
-    return _normalized_frequency(radius(fiber), refractive_index(fiber), frequency(fiber))
+    a = radius(fiber)
+    n = refractive_index(fiber)
+    ω = frequency(fiber)
+    return _normalized_frequency(a, n, ω)
 end
 
 _normalized_frequency(a::Real, n::Real, ω::Real) = ω * a * sqrt(n^2 - 1)
@@ -128,15 +203,23 @@ _normalized_frequency(a::Real, n::Real, ω::Real) = ω * a * sqrt(n^2 - 1)
     effective_refractive_index(fiber::Fiber)
 
 Return the effective refractive index of the fiber.
+
+# Examples
+```jldoctest
+julia> fiber = Fiber(0.1, 0.4, OpticalFibers.SiO2);
+
+julia> effective_refractive_index(fiber)
+1.0977164809428834
+```
 """
 function effective_refractive_index(fiber::Fiber)
-    return _effective_refractive_index(wavelength(fiber), propagation_constant(fiber))
+    λ = wavelength(fiber)
+    β = propagation_constant(fiber)
+    return β * λ / 2π
 end
 
-_effective_refractive_index(λ::Real, β::Real) = β * λ / 2π
-
 """
-    guided_mode_normalization_constant(a::Real, n::Real, β::Real, h::Real, q::Real, K1J1::Real, s::Real)
+    guided_mode_normalization_constant(a::Real, n::Real, β::Real, h::Real, q::Real, s::Real)
 
 Compute the normalization constant of an electric guided fiber mode.
 
@@ -155,7 +238,7 @@ n(\\rho) = \\begin{cases}
 and
 ``\\mathrm{\\mathbf{e}}(\\rho, \\phi) = e_{\\rho} \\hat{\\mathrm{\\mathbf{\\rho}}} \
 + e_{\\phi} \\hat{\\mathrm{\\mathbf{\\phi}}} + e_{z} \\hat{\\mathrm{\\mathbf{z}}}``,
-where the components are given by [`electric_guided_mode_cylindrical_base_components`](@ref).
+where the components are given by [`electric_guided_mode_base`](@ref).
 """
 function guided_mode_normalization_constant(
     a::Real, n::Real, β::Real, h::Real, q::Real, s::Real

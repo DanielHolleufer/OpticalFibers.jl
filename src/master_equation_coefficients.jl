@@ -148,7 +148,7 @@ function guided_coefficients_fill!(J, Γ, positions, factor, couplings)
 end
 
 """
-    guided_mode_directional_coefficients(r, d, fiber)
+    guided_directional_coefficients(r, d, fiber)
 
 Compute the guided dipole-dipole and decay coefficients due to the modes with direction `f`
 for the master equation describing a cloud of atoms with positions given by the columns in
@@ -390,7 +390,7 @@ function radiation_decay_coefficients(
 end
 
 """
-    radiation_mode_coefficients(positions, dipole, Γ₀, fiber)
+    radiation_coefficients(positions, dipole, Γ₀, fiber)
 
 Compute the dipole-dipole and decay coefficients for the master equation describing
 a cloud of atoms with positions given by the columns in `r` (in cartesian coordinates), and

@@ -2,8 +2,8 @@ module OpticalFibers
 
 export Material
 export Fiber, radius, wavelength, frequency, material, refractive_index,
-    propagation_constant, propagation_constant_derivative, normalized_frequency,
-    effective_refractive_index
+    propagation_constant, propagation_constant_derivative, group_velocity,
+    normalized_frequency, effective_refractive_index
 export ElectricField, Polarization, polarization, LinearPolarization, CircularPolarization,
     GuidedMode, GuidedField, direction, ExternalField, electric_guided_mode_base,
     electric_guided_mode_profile_cylindrical, electric_guided_mode_profile_cartesian,
