@@ -204,16 +204,28 @@ end
 function radiation_propagation_constants(fiber, resolution)
     ω₀ = fiber.frequency
     n = fiber.refractive_index
-    pairs = gauss_legendre_pairs_positive(resolution)
-    weights = reverse(weight.(pairs))
-    βs = ω₀ * reverse(cos.(pairs))
-    hs = sqrt.(n^2 * ω₀^2 .- βs.^2)
-    qs = sqrt.(ω₀^2 .- βs.^2)
+
+    βs = Vector{Float64}(undef, 2 * resolution)
+    weights = Vector{Float64}(undef, 2 * resolution)
+    hs = Vector{Float64}(undef, resolution)
+    qs = Vector{Float64}(undef, resolution)
+
+    for i in eachindex(hs)
+        θ, w = OpticalFibers.gauss_legendre_pair(2 * resolution, i)
+        βs[end - i + 1] = ω₀ * cos(θ)
+        βs[i] = -βs[end - i + 1]
+        weights[i] = w
+        weights[end - i + 1] = w
+        hs[end - i + 1] = sqrt(n^2 * ω₀^2 - βs[i]^2)
+        qs[end - i + 1] = sqrt(ω₀^2 - βs[i]^2)
+    end
 
     return weights, βs, hs, qs
 end
 
-function radiation_coupling_strengh_arbitrary_dipole(
+function radiation_coupling_strength!(
+    coupling_strengths,
+    index,
     position,
     dipole,
     ω,
@@ -221,15 +233,16 @@ function radiation_coupling_strengh_arbitrary_dipole(
     qs,
     m_max,
     boundary_coefficients::Array{RadiationBoundaryCoefficients,3},
+    H1s,
+    dH1s
 )
     x, y, z = position
     ρ = sqrt(x^2 + y^2)
     ϕ = atan(y, x)
     cosϕ = cos(ϕ)
     sinϕ = sin(ϕ)
-    H1s, dH1s = hankel_evaluations(ρ, m_max, qs)
+    hankel_evaluations!(H1s, dH1s, ρ, m_max, qs)
     Nβ = Int(length(βs) / 2)
-    coupling_strengths = Array{ComplexF64,3}(undef, size(boundary_coefficients))
     for (k, l) in enumerate((-1, 1))
         for (j, β) in enumerate(βs)
             j_q = max(Nβ + 1 - j, j - Nβ)
@@ -245,53 +258,13 @@ function radiation_coupling_strengh_arbitrary_dipole(
                 ex = eρ * cosϕ - eϕ * sinϕ
                 ey = eρ * sinϕ + eϕ * cosϕ
                 g = dipole[1] * ex + dipole[2] * ey + dipole[3] * ez
-                coupling_strengths[i, j, k] = g * angular_phase * propagation_phase
+                coupling_strengths[index, i, j, k] = g * angular_phase * propagation_phase
             end
         end
     end
-
-    return coupling_strengths
 end
 
-function radiation_coupling_strengh_transverse_dipole(
-    position,
-    dipole,
-    ω,
-    βs,
-    qs,
-    m_max,
-    boundary_coefficients::Array{RadiationBoundaryCoefficients,2},
-)
-    x, y, z = position
-    ρ = sqrt(x^2 + y^2)
-    ϕ = atan(y, x)
-    cosϕ = cos(ϕ)
-    sinϕ = sin(ϕ)
-    H1s, dH1s = hankel_evaluations(ρ, m_max, qs)
-    Nβ = Int(length(βs) / 2)
-    coupling_strengths = Array{ComplexF64,2}(undef, size(boundary_coefficients))
-    for (j, β) in enumerate(βs)
-        j_q = max(Nβ + 1 - j, j - Nβ)
-        q = qs[j_q]
-        propagation_phase = exp(im * β * z)
-        for (i, m) in enumerate(-m_max:m_max)
-            i_m = abs(m) + 1
-            H = H1s[i_m, j_q]
-            dH = dH1s[i_m, j_q]
-            angular_phase = exp(im * m * ϕ)
-            c = boundary_coefficients[i, j]
-            eρ, eϕ, ez = electric_radiation_mode_base_external(ρ, ω, β, q, m, H, dH, c)
-            ex = eρ * cosϕ - eϕ * sinϕ
-            ey = eρ * sinϕ + eϕ * cosϕ
-            g = dipole[1] * ex + dipole[2] * ey + dipole[3] * ez
-            coupling_strengths[i, j] = g * angular_phase * propagation_phase
-        end
-    end
-
-    return coupling_strengths
-end
-
-function radiation_decay_coefficients_arbitrary_dipole(
+function radiation_decay_coefficients(
     positions,
     dipole,
     fiber,
@@ -301,92 +274,25 @@ function radiation_decay_coefficients_arbitrary_dipole(
     N = size(positions)[2]
     ω₀ = fiber.frequency
     weights, βs, hs, qs = radiation_propagation_constants(fiber, resolution)
-    weights = reshape([reverse(weights); weights], 1, 2 * resolution, 1)
-    βs = [-reverse(βs); βs]
-    boundary = radiation_boundary_coefficients_arbitrary_dipole(m_max, βs, hs, qs, fiber)
+    boundary = radiation_boundary_coefficients(m_max, βs, hs, qs, fiber)
+    H1s = Matrix{ComplexF64}(undef, m_max + 1, length(qs))
+    dH1s = similar(H1s)
     gs = Array{ComplexF64,4}(undef, N, 2 * m_max + 1, 2 * resolution, 2)
     for i in 1:N
-        gs[i, :, :, :] = radiation_coupling_strengh_arbitrary_dipole(
-            view(positions, :, i),
-            dipole,
-            ω₀,
-            βs,
-            qs,
-            m_max,
-            boundary
+        radiation_coupling_strength!(
+            gs, i, view(positions, :, i), dipole, ω₀, βs, qs, m_max, boundary, H1s, dH1s
         )
     end
-
-    Γ = Matrix{ComplexF64}(undef, N, N)
+    
+    Γ = zeros(ComplexF64, N, N)
     for i in 1:N, j in i:N
-        Γ[i, j] = sum((gs[i, :, :, :] .* conj(gs[j, :, :, :])) .* weights)
+        for (k, w) in enumerate(weights)
+            Γ[i, j] += w * dot(view(gs, j, :, k, :), view(gs, i, :, k, :))
+        end
         Γ[j, i] = conj(Γ[i, j])
     end
 
     return ω₀^2 / 2 * Γ
-end
-
-function radiation_decay_coefficients_transverse_dipole(
-    positions,
-    dipole,
-    fiber,
-    m_max,
-    resolution,
-)
-    N = size(positions)[2]
-    ω₀ = fiber.frequency
-    weights, βs, hs, qs = radiation_propagation_constants(fiber, resolution)
-    weights = [reverse(weights); weights]
-    βs = [-reverse(βs); βs]
-    boundary = radiation_boundary_coefficients_transverse_dipole(m_max, βs, hs, qs, fiber)
-    gs = Array{ComplexF64,3}(undef, N, 2 * m_max + 1, 2 * resolution)
-    for i in 1:N
-        gs[i, :, :] = radiation_coupling_strengh_transverse_dipole(
-            view(positions, :, i),
-            dipole,
-            ω₀,
-            βs,
-            qs,
-            m_max,
-            boundary
-        )
-    end
-
-    Γ = Matrix{ComplexF64}(undef, N, N)
-    for i in 1:N, j in i:N
-        Γ[i, j] = sum((gs[i, :, :] .* conj(gs[j, :, :])) .* weights')
-        Γ[j, i] = conj(Γ[i, j])
-    end
-
-    return ω₀^2 * Γ
-end
-
-function radiation_decay_coefficients(
-    positions::Matrix{<:Real},
-    dipole::Vector{<:Number},
-    fiber::Fiber,
-    m_max::Integer,
-    resolution::Integer,
-)
-    if dipole[3] == 0.0
-        Γ = radiation_decay_coefficients_transverse_dipole(
-            positions,
-            dipole,
-            fiber,
-            m_max,
-            resolution
-        )
-    else
-        Γ = radiation_decay_coefficients_arbitrary_dipole(
-            positions,
-            dipole,
-            fiber,
-            m_max,
-            resolution
-        )
-    end
-
-    return Γ
 end
 
 """

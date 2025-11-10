@@ -113,4 +113,48 @@ end
     @test data ≈ test_data atol=1e-6
 end
 
+@testset "Radiation Mode Coefficients" begin
+    # We test our code against the results from
+    # https://doi.org/10.1103/PhysRevA.90.023805
+    
+    a = 0.25
+    λ = 0.852
+    ω = 2π / λ
+    SiO2 = OpticalFibers.SiO2
+    fiber = Fiber(a, λ, SiO2)
 
+    Γ₀ = 1.0
+    d_mag = sqrt(3π * Γ₀ / (ω^3))
+    d_dir = 1 / sqrt(2) * [1.0im, 0.0, -1.0]
+    d = d_mag * d_dir
+
+    ρs = LinRange(0.0, 1.0, 256)
+    Γ_22_ρs = Vector{Float64}(undef, length(ρs))
+    Γ_12_ρs = Vector{ComplexF64}(undef, length(ρs))
+
+    for i in eachindex(ρs)
+        r = [[a, 0.0, 0.0] [a + eps(a) + ρs[i], 0.0, eps()]]
+        J, Γ = radiation_coefficients(r, d, Γ₀, fiber)
+        Γ_22_ρs[i] = Γ[2, 2]
+        Γ_12_ρs[i] = Γ[1, 2]
+    end
+
+    zs = LinRange(0.0, 2.0, 256)
+    Γ_22_zs = Vector{Float64}(undef, length(ρs))
+    J_12_zs = Vector{Float64}(undef, length(ρs))
+    Γ_12_zs = Vector{ComplexF64}(undef, length(ρs))
+    for i in eachindex(zs)
+        r = [[a, 0.0, 0.0] [a, 0.0, eps() + zs[i]]]
+        J, Γ = radiation_coefficients(r, d, Γ₀, fiber)
+        Γ_22_zs[i] = Γ[2, 2]
+        Γ_12_zs[i] = Γ[1, 2]
+    end
+    
+    # Load data that when plotted shows excellent agreement with
+    # https://doi.org/10.1103/PhysRevA.90.023805
+    test_data = readdlm("data/RadiationModeMasterEquationCoefficients.txt", ',')
+    
+    # Store results in the same format as the test data.
+    data = [Γ_22_ρs Γ_22_zs abs.(Γ_12_ρs) abs.(Γ_12_zs) real.(Γ_12_ρs) imag.(Γ_12_ρs) real.(Γ_12_zs) imag.(Γ_12_zs)] / Γ₀
+    @test data ≈ test_data atol=1e-6
+end

@@ -236,51 +236,33 @@ end
 
 ## Radiation Modes ##
 
-struct BesselHankelSurfaceEvaluations
-    J::Float64
-    dJ::Float64
-    H1::ComplexF64
-    dH1::ComplexF64
-end
-
-function Base.show(io::IO, coefficients::BesselHankelSurfaceEvaluations)
-    println(io, "Bessel and Hankel surface evaluation:")
-    println(io, "J(ha)   = $(coefficients.J)")
-    println(io, "J'(ha)  = $(coefficients.dJ)")
-    println(io, "H⁽¹⁾(qa)  = $(coefficients.H1)")
-    print(io,   "H⁽¹⁾'(qa) = $(coefficients.dH1)")
-end
-
 function bessel_hankel_surface_evaluations(m_max, hs, qs, a, resolution)
     J = Matrix{Float64}(undef, m_max + 1, resolution)
     dJ = Matrix{Float64}(undef, m_max + 1, resolution)
     H1 = Matrix{ComplexF64}(undef, m_max + 1, resolution)
     dH1 = Matrix{ComplexF64}(undef, m_max + 1, resolution)
 
-    J[1, :] = besselj0.(hs * a)
-    dJ[1, :] = -besselj1.(hs * a)
-    H1[1, :] = hankelh1.(0, qs * a)
-    dH1[1, :] = -hankelh1.(1, qs * a)
+    for j in 1:resolution
+        J[1, j] = besselj0.(hs[j] * a)
+        dJ[1, j] = -besselj1.(hs[j] * a)
+        H1[1, j] = hankelh1.(0, qs[j] * a)
+        dH1[1, j] = -hankelh1.(1, qs[j] * a)
 
-    for i in 2:m_max + 1
-        m = i - 1
-        J[i, :] = besselj.(m, hs * a)
-        H1[i, :] = hankelh1.(m, qs * a)
+        for i in 2:m_max + 1
+            m = i - 1
+            J[i, j] = besselj.(m, hs[j] * a)
+            H1[i, j] = hankelh1.(m, qs[j] * a)
+        end
+
+        for i in 2:m_max
+            dJ[i, j] = 0.5 * (J[i - 1, j] - J[i + 1, j])
+            dH1[i, j] = 0.5 * (H1[i - 1, j] - H1[i + 1, j])
+        end
+        dJ[m_max + 1, j] = 0.5 * (J[m_max, j] - besselj.(m_max + 1, hs[j] * a))
+        dH1[m_max + 1, j] = 0.5 * (H1[m_max, j] - hankelh1.(m_max + 1, qs[j] * a))
     end
 
-    for i in 2:m_max
-        dJ[i, :] = 0.5 * (J[i - 1, :] - J[i + 1, :])
-        dH1[i, :] = 0.5 * (H1[i - 1, :] - H1[i + 1, :])
-    end
-    dJ[m_max + 1, :] = 0.5 * (J[m_max, :] - besselj.(m_max + 1, hs * a))
-    dH1[m_max + 1, :] = 0.5 * (H1[m_max, :] - hankelh1.(m_max + 1, qs * a))
-
-    coefficients = Array{BesselHankelSurfaceEvaluations}(undef, size(J))
-    for i in eachindex(J)
-        coefficients[i] = BesselHankelSurfaceEvaluations(J[i], dJ[i], H1[i], dH1[i])
-    end
-
-    return coefficients
+    return (J = J, dJ = dJ, H1 = H1, dH1 = dH1)
 end
 
 struct RadiationAuxiliaryCoefficients
@@ -306,12 +288,13 @@ function radiation_auxiliary_coefficients(
     q::Real,
     a::Real,
     n::Real,
-    bessel_hankel_evaluations::BesselHankelSurfaceEvaluations,
+    J::Real,
+    dJ::Real,
+    H1::Complex,
+    dH1::Complex,
 )
-    J = bessel_hankel_evaluations.J
-    dJ = bessel_hankel_evaluations.dJ
-    H2 = conj(bessel_hankel_evaluations.H1)
-    dH2 = conj(bessel_hankel_evaluations.dH1)
+    H2 = conj(H1)
+    dH2 = conj(dH1)
     
     V = m * ω * β / (a * h^2 * q^2) * (1 - n^2) * J * H2
     M = 1 / h * dJ * H2 - 1 / q * J * dH2
@@ -329,7 +312,7 @@ function radiation_auxiliary_coefficients(
     qs::AbstractArray{<:Real},
     a::Real,
     n::Real,
-    bessel_hankel_evaluations::Matrix{BesselHankelSurfaceEvaluations},
+    bessel_hankel_evaluations::NamedTuple{(:J, :dJ, :H1, :dH1)},
 )
     Nm = length(0:m_max)
     Nβ = length(βs)
@@ -338,8 +321,13 @@ function radiation_auxiliary_coefficients(
         for (j, β) in enumerate(βs)
             h = hs[j]
             q = qs[j]
-            evals = bessel_hankel_evaluations[i, j]
-            auxiliary[i, j] = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, evals)
+            J = bessel_hankel_evaluations.J[i, j]
+            dJ = bessel_hankel_evaluations.dJ[i, j]
+            H1 = bessel_hankel_evaluations.H1[i, j]
+            dH1 = bessel_hankel_evaluations.dH1[i, j]
+            auxiliary[i, j] = radiation_auxiliary_coefficients(
+                ω, β, m, h, q, a, n, J, dJ, H1, dH1
+            )
         end
     end
 
@@ -403,7 +391,7 @@ function radiation_boundary_coefficients(
     return RadiationBoundaryCoefficients(A, B, C, D)
 end
 
-function radiation_boundary_coefficients_arbitrary_dipole(
+function radiation_boundary_coefficients(
     ω::Real,
     m_max::Integer,
     βs::AbstractArray{<:Real},
@@ -432,7 +420,7 @@ function radiation_boundary_coefficients_arbitrary_dipole(
     return boundary
 end
 
-function radiation_boundary_coefficients_arbitrary_dipole(
+function radiation_boundary_coefficients(
     m_max::Integer,
     βs::AbstractArray{<:Real},
     hs::AbstractArray{<:Real},
@@ -443,80 +431,22 @@ function radiation_boundary_coefficients_arbitrary_dipole(
     ω = frequency(fiber)
     n = refractive_index(fiber)
     evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, a, length(hs))
-    auxiliary = radiation_auxiliary_coefficients(ω, view(βs, length(hs) + 1:length(βs)), m_max, hs, qs, a, n, evaluations)
-    return radiation_boundary_coefficients_arbitrary_dipole(ω, m_max, βs, qs, a, auxiliary)
+    auxiliary = radiation_auxiliary_coefficients(
+        ω, view(βs, length(hs) + 1:length(βs)), m_max, hs, qs, a, n, evaluations
+    )
+    return radiation_boundary_coefficients(ω, m_max, βs, qs, a, auxiliary)
 end
 
-function radiation_boundary_coefficients_transverse_dipole(
-    ω::Real,
+function hankel_evaluations!(
+    H1::Matrix{ComplexF64},
+    dH1::Matrix{ComplexF64},
+    ρ::Real,
     m_max::Integer,
-    βs::AbstractArray{<:Real},
-    qs::AbstractArray{<:Real},
-    a::Real,
-    auxiliary_coefficients::Matrix{RadiationAuxiliaryCoefficients},
+    qs::AbstractVector{<:Real}
 )
-    ms = -m_max:m_max
-    Nm = length(ms)
-    Nβ = Int(length(βs) / 2)
-    boundary = Array{RadiationBoundaryCoefficients,2}(undef, Nm, 2 * Nβ)
-    for (j, β) in enumerate(βs)
-        j_auxiliary = maximum((Nβ + 1 - j, j - Nβ))
-        for (i, m) in enumerate(-m_max:m_max)
-            i_auxiliary = abs(m) + 1
-            q = qs[j_auxiliary]
-            auxiliary = auxiliary_coefficients[i_auxiliary, j_auxiliary]
-            boundary[i, j] = radiation_boundary_coefficients(a, ω, β, m, 1, q, auxiliary)
-        end
-    end
-
-    return boundary
-end
-
-function radiation_boundary_coefficients_transverse_dipole(
-    m_max::Integer,
-    βs::AbstractArray{<:Real},
-    hs::AbstractArray{<:Real},
-    qs::AbstractArray{<:Real},
-    fiber::Fiber,
-)
-    a = radius(fiber)
-    ω = frequency(fiber)
-    n = refractive_index(fiber)
-    evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, a, length(hs))
-    auxiliary = radiation_auxiliary_coefficients(ω, view(βs, length(hs) + 1:length(βs)), m_max, hs, qs, a, n, evaluations)
-    return radiation_boundary_coefficients_transverse_dipole(ω, m_max, βs, qs, a, auxiliary)
-end
-
-function hankel_evaluations(ρ, m_max, qs)
-    Nq = length(qs)
-    H1 = Matrix{ComplexF64}(undef, m_max + 1, Nq)
-    dH1 = Matrix{ComplexF64}(undef, m_max + 1, Nq)
-
-    H1[1, :] = hankelh1.(0, qs * ρ)
-    dH1[1, :] = -hankelh1.(1, qs * ρ)
-
-    for i in 2:m_max + 1
-        m = i - 1
-        H1[i, :] = hankelh1.(m, qs * ρ)
-    end
-
-    for i in 2:m_max
-        dH1[i, :] = 0.5 * (H1[i - 1, :] - H1[i + 1, :])
-    end
-    dH1[m_max + 1, :] = 0.5 * (H1[m_max, :] - hankelh1.(m_max + 1, qs * ρ))
-
-    return H1, dH1
-end
-
-function hankel_evaluations2(ρ::Real, m_max::Integer, qs::AbstractVector{<:Real})
-    Nq = length(qs)
-    M = m_max + 1
-    H1  = Matrix{ComplexF64}(undef, M, Nq)
-    dH1 = Matrix{ComplexF64}(undef, M, Nq)
-
-    for j in 1:Nq
+    for j in eachindex(qs)
         qρ = qs[j] * ρ
-        for i in 1:M
+        for i in 1:m_max + 1
             H1[i, j] = hankelh1(i - 1, qρ)
         end
 
@@ -526,7 +456,12 @@ function hankel_evaluations2(ρ::Real, m_max::Integer, qs::AbstractVector{<:Real
         end
         dH1[m_max + 1, j] = 0.5 * (H1[m_max, j] - hankelh1(m_max + 1, qρ))
     end
+end
 
+function hankel_evaluations(ρ::Real, m_max::Integer, qs::AbstractVector{<:Real})
+    H1 = Matrix{ComplexF64}(undef, m_max + 1, length(qs))
+    dH1 = similar(H1)
+    hankel_evaluations!(H1, dH1, ρ, m_max, qs)
     return H1, dH1
 end
 
@@ -564,8 +499,7 @@ function electric_radiation_mode_base_internal(
     H1 = hankelh1(m, q * a)
     dH1 = 0.5 * (hankelh1(m - 1, q * a) - hankelh1(m + 1, q * a))
     
-    bessel_hankel = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
-    auxiliary = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, bessel_hankel)
+    auxiliary = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, J, dJ, H1, dH1)
     boundary = radiation_boundary_coefficients(a, ω, l, q, auxiliary)
 
     return electric_radiation_mode_base_internal(ρ, ω, β, h, m, boundary)
@@ -602,15 +536,14 @@ function electric_radiation_mode_base_external(
 
     J = besselj(m, h * a)
     dJ = 0.5 * (besselj(m - 1, h * a) - besselj(m + 1, h * a))
-    H1 = hankelh1(m, q * a)
-    dH1 = 0.5 * (hankelh1(m - 1, q * a) - hankelh1(m + 1, q * a))
-    bessel_hankel = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
+    H1a = hankelh1(m, q * a)
+    dH1a = 0.5 * (hankelh1(m - 1, q * a) - hankelh1(m + 1, q * a))
+
+    radiation = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, J, dJ, H1a, dH1a)
+    boundary = radiation_boundary_coefficients(a, ω, l, q, radiation)
 
     H1 = hankelh1(m, q * ρ)
     dH1 = 0.5 * (hankelh1(m - 1, q * ρ) - hankelh1(m + 1, q * ρ))
-
-    radiation = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, bessel_hankel)
-    boundary = radiation_boundary_coefficients(a, ω, l, q, radiation)
 
     return electric_radiation_mode_base_external(ρ, ω, β, q, m, H1, dH1, boundary)
 end
