@@ -295,7 +295,6 @@ end
     radiation_auxiliary_coefficients = OpticalFibers.radiation_auxiliary_coefficients
     RadiationBoundaryCoefficients = OpticalFibers.RadiationBoundaryCoefficients
     radiation_boundary_coefficients = OpticalFibers.radiation_boundary_coefficients
-    gauss_legendre_pairs_positive = OpticalFibers.gauss_legendre_pairs_positive
 
     a = 0.05
     λ = 0.399
