@@ -307,8 +307,8 @@ function radiation_coefficients(
     dipole::Vector{<:Number},
     Γ₀::Real,
     fiber::Fiber;
-    m_max::Integer = 20,
-    resolution::Integer = 500,
+    m_max::Integer = 64,
+    resolution::Integer = 300,
 )
     N = size(positions)[2]
     ω₀ = fiber.frequency

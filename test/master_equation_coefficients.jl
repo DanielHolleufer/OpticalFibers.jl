@@ -44,7 +44,8 @@ using Test
     # https://doi.org/10.22331/q-2023-08-22-1091
     # The data has been created with the sign convention from
     # https://doi.org/10.22331/q-2023-08-22-1091
-    test_data = readdlm("data/VacuumMasterEquationCoefficients.txt", ',', ComplexF64)
+    file = joinpath(@__DIR__, "data", "VacuumMasterEquationCoefficients.txt")
+    test_data = readdlm(file, ',', ComplexF64)
     data = [J_12_zs J_12_zs_x J_12_zs_z]
     @test data ≈ test_data atol=1e-6
 end
@@ -105,7 +106,8 @@ end
     
     # Load data that when plotted shows excellent agreement with
     # https://doi.org/10.1103/PhysRevA.90.023805
-    test_data = readdlm("data/GuidedModeMasterEquationCoefficients.txt", ',', ComplexF64)
+    file = joinpath(@__DIR__, "data", "GuidedModeMasterEquationCoefficients.txt")
+    test_data = readdlm(file, ',', ComplexF64)
     
     # Store results in the same format as the test data. Note that we have a different sign
     # convention for the dipole-dipole interaction coeffecients, so we multiply ours by -1.
@@ -152,7 +154,8 @@ end
     
     # Load data that when plotted shows excellent agreement with
     # https://doi.org/10.1103/PhysRevA.90.023805
-    test_data = readdlm("data/RadiationModeMasterEquationCoefficients.txt", ',')
+    file = joinpath(@__DIR__, "data", "RadiationModeMasterEquationCoefficients.txt")
+    test_data = readdlm(file, ',')
     
     # Store results in the same format as the test data.
     data = [Γ_22_ρs Γ_22_zs abs.(Γ_12_ρs) abs.(Γ_12_zs) real.(Γ_12_ρs) imag.(Γ_12_ρs) real.(Γ_12_zs) imag.(Γ_12_zs)] / Γ₀

@@ -50,6 +50,7 @@ using Test
         end
     end
 
-    test_data = readdlm("data/LinearChainTransmission.txt", ',')
+    file = joinpath(@__DIR__, "data", "LinearChainTransmission.txt")
+    test_data = readdlm(file, ',')
     @test data ≈ test_data atol=1e-4
 end

@@ -301,6 +301,10 @@ function radiation_auxiliary_coefficients(
     L = n^2 / h * dJ * H2 - 1 / q * J * dH2
     η = sqrt((abs2(V) + abs2(L)) / (abs2(V) + abs2(M)))
 
+    if isnan(η)
+        η = 1.0
+    end
+
     return RadiationAuxiliaryCoefficients(V, M, L, η)
 end
 
