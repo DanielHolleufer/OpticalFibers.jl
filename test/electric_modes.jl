@@ -199,7 +199,6 @@ end
 
 @testset "Auxiliary Coefficients" begin
     gauss_legendre_pairs = OpticalFibers.gauss_legendre_pairs
-    BesselHankelSurfaceEvaluations = OpticalFibers.BesselHankelSurfaceEvaluations
     bessel_hankel_surface_evaluations = OpticalFibers.bessel_hankel_surface_evaluations
     RadiationAuxiliaryCoefficients = OpticalFibers.RadiationAuxiliaryCoefficients
     radiation_auxiliary_coefficients = OpticalFibers.radiation_auxiliary_coefficients
@@ -221,7 +220,8 @@ end
 
     m_max = 50
     resolution = 1000
-    βs = ω * cos.(gauss_legendre_pairs(resolution))
+    angles, _ = gauss_legendre_pairs(resolution)
+    βs = ω * cos.(angles)
     hs = sqrt.(n^2 * ω^2 .- βs.^2)
     qs = sqrt.(ω^2 .- βs.^2)
 
@@ -242,10 +242,12 @@ end
         dJ = besselj_derivative(m, h * a)
         H1 = hankelh1(m, q * a)
         dH1 = hankelh1_derivative(m, q * a)
-        evals = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
-        @test evals == evaluations[i, j]
+        @test J == evaluations.J[i, j]
+        @test dJ == evaluations.dJ[i, j]
+        @test H1 == evaluations.H1[i, j]
+        @test dH1 == evaluations.dH1[i, j]
 
-        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, evals)
+        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, J, dJ, H1, dH1)
         @test aux == auxiliary[i, j]
     end
 
@@ -257,7 +259,8 @@ end
 
     m_max = 35
     resolution = 513
-    βs = ω * cos.(gauss_legendre_pairs(resolution))
+    angles, _ = gauss_legendre_pairs(resolution)
+    βs = ω * cos.(angles)
     hs = sqrt.(n^2 * ω^2 .- βs.^2)
     qs = sqrt.(ω^2 .- βs.^2)
 
@@ -275,20 +278,23 @@ end
         dJ = besselj_derivative(m, h * a)
         H1 = hankelh1(m, q * a)
         dH1 = hankelh1_derivative(m, q * a)
-        evals = BesselHankelSurfaceEvaluations(J, dJ, H1, dH1)
-        @test evals == evaluations[i, j]
+        @test J == evaluations.J[i, j]
+        @test dJ == evaluations.dJ[i, j]
+        @test H1 == evaluations.H1[i, j]
+        @test dH1 == evaluations.dH1[i, j]
 
-        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, evals)
+        aux = radiation_auxiliary_coefficients(ω, β, m, h, q, a, n, J, dJ, H1, dH1)
         @test aux == auxiliary[i, j]
     end
 end
 
 @testset "Boundary Coefficients" begin
+    gauss_legendre_pairs = OpticalFibers.gauss_legendre_pairs
     bessel_hankel_surface_evaluations = OpticalFibers.bessel_hankel_surface_evaluations
     RadiationAuxiliaryCoefficients = OpticalFibers.RadiationAuxiliaryCoefficients
     radiation_auxiliary_coefficients = OpticalFibers.radiation_auxiliary_coefficients
     RadiationBoundaryCoefficients = OpticalFibers.RadiationBoundaryCoefficients
-    radiation_boundary_coefficients_arbitrary_dipole = OpticalFibers.radiation_boundary_coefficients_arbitrary_dipole
+    radiation_boundary_coefficients = OpticalFibers.radiation_boundary_coefficients
     gauss_legendre_pairs_positive = OpticalFibers.gauss_legendre_pairs_positive
 
     a = 0.05
@@ -300,7 +306,8 @@ end
 
     m_max = 20
     resolution = 500
-    βs = ω * reverse(cos.(gauss_legendre_pairs_positive(resolution)))
+    angles, _ = gauss_legendre_pairs(resolution)
+    βs = ω * cos.(angles)
     hs = sqrt.(n^2 * ω^2 .- βs.^2)
     qs = sqrt.(ω^2 .- βs.^2)
     βs_full = [-reverse(βs); βs]
@@ -312,7 +319,7 @@ end
 
     evaluations = bessel_hankel_surface_evaluations(m_max, hs, qs, a, resolution)
     auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, a, n, evaluations)
-    boundary = radiation_boundary_coefficients_arbitrary_dipole(ω, m_max, βs, qs, a, auxiliary)
+    boundary = radiation_boundary_coefficients(ω, m_max, βs, qs, a, auxiliary)
 
     A_coefficients1 = A_coefficient.(boundary[1:m_max + 1, :, 1])
     A_coefficients2 = A_coefficient.(reverse(boundary[m_max + 1:end, :, 2], dims=1))

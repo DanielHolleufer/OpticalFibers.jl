@@ -413,16 +413,3 @@ function gauss_legendre_pairs(n::Integer)
     
     return angles, weights
 end
-
-function gauss_legendre_pairs_positive(n::Integer)
-    angles = Vector{Float64}(undef, n)
-    weights = Vector{Float64}(undef, n)
-    
-    for k in 1:n
-        angle, weight = gauss_legendre_pair(2 * n, k)
-        angles[k] = angle
-        weights[k] = weight
-    end
-    
-    return reverse!(angles), reverse!(weights)
-end
