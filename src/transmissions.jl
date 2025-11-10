@@ -97,13 +97,16 @@ function transmission_three_level(Δes, fiber, Δr, Ωs::Number, gs, J, Γ, γ)
     dβ₀ = fiber.propagation_constant_derivative
     t = zeros(ComplexF64, length(Δes))
     M = hessenberg(-(J + im * Γ / 2))
-    fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, γ)
+    g_temp = similar(gs)
+    fill_transmissions_three_level!(t, g_temp, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, γ)
     return t
 end
 
-function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::Number, gs, ω₀, dβ₀, γ)
+function fill_transmissions_three_level!(t, g_temp, M, Δes, Δr, Ωs::Number, gs, ω₀, dβ₀, γ)
     for i in eachindex(t)
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M + (-Δes[i] + abs2(Ωs) / (Δes[i] + Δr + im * γ / 2)) * I) \ gs)
+        factor = -Δes[i] + abs2(Ωs) / (Δes[i] + Δr + im * γ / 2)
+        ldiv!(g_temp, M + factor * I, gs)
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * g_temp
     end
 end
 
@@ -152,13 +155,15 @@ function transmission_two_level(Δes, fiber, gs, J, Γ)
     dβ₀ = fiber.propagation_constant_derivative
     t = zeros(ComplexF64, length(Δes))
     M = hessenberg(-(J + im * Γ / 2))
-    fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
+    g_temp = similar(gs)
+    fill_transmissions_two_level!(t, g_temp, M, Δes, gs, ω₀, dβ₀)
     return t
 end
 
-function fill_transmissions_two_level!(t, M, Δes, gs, ω₀, dβ₀)
+function fill_transmissions_two_level!(t, g_temp, M, Δes, gs, ω₀, dβ₀)
     for i in eachindex(t)
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * ((M - Δes[i] * I) \ gs)
+        ldiv!(g_temp, M - Δes[i] * I, gs)
+        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * g_temp
     end
 end
 
