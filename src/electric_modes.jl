@@ -32,13 +32,13 @@ end
 polarization(polarization::LinearPolarization) = polarization.ϕ₀
 polarization(polarization::CircularPolarization) = polarization.l
 
-struct GuidedMode{P<:Polarization}
-    fiber::Fiber
+struct GuidedMode{P<:Polarization,T<:Real}
+    fiber::Fiber{T}
     polarization::Polarization
     f::Int
-    function GuidedMode(fiber::Fiber, polarization::P, f::Int) where {P<:Polarization}
+    function GuidedMode(fiber::Fiber{T}, polarization::P, f::Int) where {P<:Polarization,T<:Real}
         f ∈ (-1, 1) || throw(DomainError(f, "Propagation direction must be +1 or -1."))
-        return new{P}(fiber, polarization, f)
+        return new{P,T}(fiber, polarization, f)
     end
 end
 
@@ -61,9 +61,9 @@ radius(mode::GuidedMode) = radius(mode.fiber)
 
 abstract type ElectricField end
 
-struct GuidedField{P<:Polarization} <: ElectricField
-    mode::GuidedMode{P}
-    power::Float64
+struct GuidedField{P<:Polarization,T<:Real} <: ElectricField
+    mode::GuidedMode{P,T}
+    power::T
 end
 
 function Base.show(io::IO, field::GuidedField)

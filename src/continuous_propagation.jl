@@ -12,21 +12,20 @@ function transmission_coefficient_continuous_propagation(
     p = (Δ_e, probe, control, atom, cloud, factor)
     a = radius(probe)
 
-    domain_1 = ([a + eps(a), 0.0], [λ, 2π])
-    prob_1 = IntegralProblem(continuous_propagation_integrand, domain_1, p)
-    sol_1 = solve(prob_1, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+    domain = ([a + eps(a), 0.0], [λ, 2π])
+    prob = IntegralProblem(continuous_propagation_integrand, domain, p)
+    alg = HCubatureJL()
+    cache = init(prob, alg; abstol=1e-9, reltol=1e-9)
+    sol_1 = solve!(cache)
 
-    domain_2 = ([λ, 0.0], [10λ, 2π])
-    prob_2 = IntegralProblem(continuous_propagation_integrand, domain_2, p)
-    sol_2 = solve(prob_2, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+    cache.domain = ([λ, 0.0], [10λ, 2π])
+    sol_2 = solve!(cache)
 
-    domain_3 = ([10λ, 0.0], [100λ, 2π])
-    prob_3 = IntegralProblem(continuous_propagation_integrand, domain_3, p)
-    sol_3 = solve(prob_3, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+    cache.domain = ([10λ, 0.0], [100λ, 2π])
+    sol_3 = solve!(cache)
 
-    domain_4 = ([100λ, 0.0], [1000λ, 2π])
-    prob_4 = IntegralProblem(continuous_propagation_integrand, domain_4, p)
-    sol_4 = solve(prob_4, HCubatureJL(), abstol=1e-9, reltol=1e-9)
+    cache.domain = ([100λ, 0.0], [1000λ, 2π])
+    sol_4 = solve!(cache)
 
     N = cloud.number_of_atoms
 
@@ -40,8 +39,12 @@ function transmission_coefficient_continuous_propagation(
     atom::ThreeLevelAtom,
     cloud::GaussianCloud,
 )
-    ts = [transmission_coefficient_continuous_propagation(Δ_e, probe, control, atom, cloud)
-          for Δ_e in Δ_es]
+    ts = Vector{ComplexF64}(undef, length(Δ_es))
+    for (i, Δ) in enumerate(Δ_es)
+        ts[i] = transmission_coefficient_continuous_propagation(
+            Δ, probe, control, atom, cloud
+        )
+    end
 
     return ts
 end
