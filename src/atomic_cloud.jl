@@ -58,28 +58,18 @@ struct GaussianCloud <: AtomicCloud
         exclusion_zone::Float64,
         peak_density::Float64,
     )
-        σ_x < 0 && throw(DomainError(σ_x, "Standard deviation σ_x must be non-negative."))
-        σ_y < 0 && throw(DomainError(σ_y, "Standard deviation σ_y must be non-negative."))
-        σ_z < 0 && throw(DomainError(σ_z, "Standard deviation σ_z must be non-negative."))
-        peak_density < 0 && throw(DomainError(peak_density, "Peak density must be \
-                                                             non-negative."))
-        fiber_radius < 0 && throw(DomainError(fiber_radius, "Fiber radius must be \
-                                                             non-negative."))
-        exclusion_zone < 0 && throw(DomainError(exclusion_zone, "Exclusion zone must be \
-                                                                 non-negative."))
+        σ_x ≤ 0 && throw(DomainError(σ_x, "Standard deviation σ_x must be positive."))
+        σ_y ≤ 0 && throw(DomainError(σ_y, "Standard deviation σ_y must be positive."))
+        σ_z ≤ 0 && throw(DomainError(σ_z, "Standard deviation σ_z must be positive."))
+        peak_density ≤ 0 && throw(DomainError(peak_density, "Peak density must be positive."))
+        fiber_radius ≤ 0 && throw(DomainError(fiber_radius, "Fiber radius must be positive."))
+        exclusion_zone < 0 && throw(DomainError(exclusion_zone, "Exclusion zone must be non-negative."))
 
         p = (σ_x, σ_y, σ_z, fiber_radius, exclusion_zone)
-        normalization_constant = gaussian_cloud_normalization_constant(p)
-        lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
-        upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
-        P_M = box_maximization(
-            (u, p) -> gaussian_cloud_unnormalized(u..., p),
-            [fiber_radius + exclusion_zone + eps(fiber_radius + exclusion_zone), 0.0, 0.0],
-            lower,
-            upper,
-            p,
-        )
-        number_of_atoms = round(Int, peak_density / (normalization_constant * P_M))
+        normalization_constant = gaussian_cloud_normalization_constant(p)        
+        a = fiber_radius + exclusion_zone + eps(fiber_radius + exclusion_zone)
+        peak_probability = normalization_constant * exp(-a^2 / (2 * max(σ_x, σ_y)^2))
+        number_of_atoms = round(Int, peak_density / (peak_probability))
 
         return new(
             σ_x,
