@@ -10,21 +10,21 @@ function transmission_coefficient_continuous_propagation(
     db = propagation_constant_derivative(probe)
     factor = sqrt(ω * db / (4 * π))
     p = (Δ_e, probe, control, atom, cloud, factor)
-    a = radius(probe)
+    a = radius(probe) + cloud.exclusion_zone
 
-    domain = ([a + eps(a), 0.0], [λ, 2π])
+    domain = ([a + eps(a), 0.0], [λ + a, 2π])
     prob = IntegralProblem(continuous_propagation_integrand, domain, p)
     alg = HCubatureJL()
     cache = init(prob, alg; abstol=1e-9, reltol=1e-9)
     sol_1 = solve!(cache)
 
-    cache.domain = ([λ, 0.0], [10λ, 2π])
+    cache.domain = ([λ + a, 0.0], [10λ + a, 2π])
     sol_2 = solve!(cache)
 
-    cache.domain = ([10λ, 0.0], [100λ, 2π])
+    cache.domain = ([10λ + a, 0.0], [100λ + a, 2π])
     sol_3 = solve!(cache)
 
-    cache.domain = ([100λ, 0.0], [1000λ, 2π])
+    cache.domain = ([100λ + a, 0.0], [1000λ + a, 2π])
     sol_4 = solve!(cache)
 
     N = cloud.number_of_atoms
@@ -54,8 +54,9 @@ function continuous_propagation_integrand(u, p)
     ϕ = u[2]
     Δ_e, probe, control, atom, cloud, factor = p
     σ_r = cloud.σ_x
+    n = cloud.normalization_constant * sqrt(2π) * cloud.σ_z
 
-    distribution = ρ / (2 * π * σ_r^2) * exp(-ρ^2 / (2 * σ_r^2))
+    distribution = ρ * n * exp(-ρ^2 / (2 * σ_r^2))
     susceptibility = _susceptibility(ρ, ϕ, Δ_e, probe, control, atom, factor)
     return susceptibility * distribution
 end
@@ -139,9 +140,14 @@ function decay_rate_guided_total(ρ, ϕ, d, fiber, front_factor)
 end
 
 function _transmittance(Δ, p)
-    t = transmission_coefficient_continuous_propagation(Δ[1], p...)
+    t = transmission_coefficient_continuous_propagation(Δ, p...)
     T = abs2(t)
     return T
+end
+
+function transformed_transmittance(u, shift, p)
+    Δ = shift + 1 - 1 / u
+    return _transmittance(Δ, p)
 end
 
 function probe_detuning_range(
@@ -152,34 +158,27 @@ function probe_detuning_range(
     resolution::Integer=500,
     range_scale_factor::Real=4.0,
 )
-    Γ_eg = atom.decay_rate_lower
-    Δ_r = atom.detuning_upper
+    Δr = atom.detuning_upper
     p = (probe, control, atom, cloud)
-    optprob = OptimizationFunction(_transmittance)
-    prob = OptimizationProblem(optprob, [-2 * Δ_r], p, lb = [-Inf], ub = [-Δ_r])
-    sol = solve(prob, NLopt.LN_NELDERMEAD())
-    Δ_min = sol.u[1]
-    T_min = sol.objective
+    sol = Optim.optimize(u -> transformed_transmittance(u, -Δr, p), 0.9, 1.0, rel_tol=eps())
+    Δ_min = -Δr + 1 - 1 / Optim.minimizer(sol)
+    T_min = Optim.minimum(sol)
 
-    dark_state_transmittance = _transmittance([-Δ_r], p)
+    dark_state_transmittance = transmission_coefficient_continuous_propagation(-Δr, p...)
     half_min = (T_min + dark_state_transmittance) / 2
 
-    if abs(Δ_min + Δ_r) / Γ_eg  < 1e-4
-        lb = [2 * Δ_min]
-    else
-        lb = [-Inf]
-    end
-    optprob_fwhm = OptimizationFunction((u, p) -> abs(_transmittance(u, p) - half_min))
-    prob_left = OptimizationProblem(optprob_fwhm, sol.u, p, lb = lb, ub = sol.u)
-    sol_left = solve(prob_left, NLopt.LN_NELDERMEAD())
-    Δ_fwhm_left = sol_left.u[1]
+    sol_fwhm_left = Optim.optimize(
+        u -> abs(transformed_transmittance(u, Δ_min, p) - half_min), 0.9, 1.0, rel_tol=eps()
+    )
+    Δ_fwhm_left = Δ_min + 1 - 1 / Optim.minimizer(sol_fwhm_left)
 
-    prob_right = OptimizationProblem(optprob_fwhm, sol.u, p, lb = sol.u, ub = [-Δ_r])
-    sol_right = solve(prob_right, NLopt.LN_NELDERMEAD())
-    Δ_fwhm_right = sol_right.u[1]
+    sol_fwhm_right = Optim.optimize(
+        u -> abs(_transmittance(u, p) - half_min), Δ_min, -Δr, rel_tol=eps()
+    )
+    Δ_fwhm_right = Optim.minimizer(sol_fwhm_right)
     
     range_lower_bound = Δ_min - range_scale_factor * (Δ_min - Δ_fwhm_left)
     range_upper_bound = Δ_min + range_scale_factor * (Δ_fwhm_right - Δ_min)
 
-    return LinRange(range_lower_bound, range_upper_bound, resolution)
+    return LinRange{Float64,Int}(range_lower_bound, range_upper_bound, resolution)
 end

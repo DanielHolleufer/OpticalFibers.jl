@@ -6,7 +6,7 @@ end
 
 function box_rejection_sampling(f, lower, upper, N, p; r0=zeros(3), algorithm=LBFGS())
     fmax = box_maximization(f, r0, lower, upper, p, algorithm=algorithm)
-    samples = zeros(3, N)
+    samples = Matrix{Float64}(undef, 3, N)
     count = 0
     while count < N
         r = rand(3) .* (upper - lower) + lower
@@ -74,7 +74,7 @@ struct GaussianCloud <: AtomicCloud
         upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
         P_M = box_maximization(
             (u, p) -> gaussian_cloud_unnormalized(u..., p),
-            [fiber_radius + exclusion_zone, 0.0, 0.0],
+            [fiber_radius + exclusion_zone + eps(fiber_radius + exclusion_zone), 0.0, 0.0],
             lower,
             upper,
             p,
@@ -113,12 +113,7 @@ function GaussianCloud(
 end
 
 function GaussianCloud(
-    σ_x::Real,
-    σ_y::Real,
-    σ_z::Real,
-    fiber::Fiber,
-    exclusion_zone::Real,
-    peak_density::Real,
+    σ_x::Real, σ_y::Real, σ_z::Real, fiber::Fiber, exclusion_zone::Real, peak_density::Real
 )
     return GaussianCloud(σ_x, σ_y, σ_z, fiber.radius, exclusion_zone, peak_density)
 end
@@ -164,12 +159,7 @@ function peak_density_gaussian_cloud(
     number_of_atoms::Int,
 )
     return peak_density_gaussian_cloud(
-        σ_x,
-        σ_y,
-        σ_z,
-        fiber.radius,
-        exclusion_zone,
-        number_of_atoms,
+        σ_x, σ_y, σ_z, fiber.radius, exclusion_zone, number_of_atoms,
     )
 end
 
@@ -285,10 +275,7 @@ struct CrossedTweezerFiberTrappedCloud <: AtomicCloud
 end
 
 function atomic_density_distribution(
-    x::Real,
-    y::Real,
-    z::Real,
-    cloud::CrossedTweezerFiberTrappedCloud,
+    x::Real, y::Real, z::Real, cloud::CrossedTweezerFiberTrappedCloud
 )
     p = (cloud.trap, cloud.temperature, cloud.exclusion_zone)
     n = cloud.normalization_constant
@@ -296,10 +283,7 @@ function atomic_density_distribution(
 end
 
 function crossed_tweezer_fiber_cloud_approx_unnormalized(
-    x::Real,
-    y::Real,
-    z::Real,
-    cloud::CrossedTweezerFiberTrappedCloud,
+    x::Real, y::Real, z::Real, cloud::CrossedTweezerFiberTrappedCloud
 )
     ρ = sqrt(x^2 + y^2)
     if ρ < radius(fiber)
