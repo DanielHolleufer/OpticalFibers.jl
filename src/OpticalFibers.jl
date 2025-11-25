@@ -21,6 +21,7 @@ export single_two_level_transmission, single_three_level_transmission, optical_d
     coupling_strengths, transmission_three_level, transmission_two_level,
     probe_detuning_range
 export transmission_coefficient_continuous_propagation
+export SI_to_natural, natural_to_SI
 
 include("materials.jl")
 include("fibers.jl")
@@ -33,6 +34,7 @@ include("master_equation_coefficients.jl")
 include("transmissions.jl")
 include("continuous_propagation.jl")
 include("gauss_legendre.jl")
+include("unit_conversions.jl")
 
 using Bessels
 using Cuba
