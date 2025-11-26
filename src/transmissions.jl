@@ -59,7 +59,7 @@ end
 rabi_frequency(d, positions, field::ExternalField) = field.rabi_frequency
 
 """
-    transmission_three_level(Δes, fiber, Δr, Ω::Number, gs, J, Γ, γ)
+    transmission_three_level(Δes, probe::GuidedMode, atom::ThreeLevelAtom, gs, Ω, H_effective, Γ)
 
 Compute the transmission of a cloud of three level atoms surrounding an optical fiber for 
 each value of the lower transition detuning given by `Δes`, where each atom experience the
@@ -112,7 +112,7 @@ function fill_transmissions_three_level!(
 end
 
 """
-    transmission_two_level(Δes, fiber, gs::AbstractArray, J, Γ)
+    transmission_two_level(Δes, fiber, gs, J, Γ)
 
 Compute the transmission of a cloud of two level atoms surrounding an optical fiber for 
 each value of the detuning given by `Δes`.
