@@ -4,6 +4,8 @@ function transmission_coefficient_continuous_propagation(
     control::ElectricField,
     atom::ThreeLevelAtom,
     cloud::GaussianCloud,
+    abstol::Float64,
+    reltol::Float64,
 )
     λ = wavelength(probe)
     ω = frequency(probe)
@@ -14,8 +16,7 @@ function transmission_coefficient_continuous_propagation(
 
     domain = ([a + eps(a), 0.0], [λ + a, 2π])
     prob = IntegralProblem(continuous_propagation_integrand, domain, p)
-    alg = HCubatureJL()
-    cache = init(prob, alg; abstol=1e-9, reltol=1e-9)
+    cache = init(prob, HCubatureJL(); abstol=abstol, reltol=reltol)
     sol_1 = solve!(cache)
 
     cache.domain = ([λ + a, 0.0], [10λ + a, 2π])
@@ -30,23 +31,6 @@ function transmission_coefficient_continuous_propagation(
     N = cloud.number_of_atoms
 
     return exp(N * (sol_1.u + sol_2.u + sol_3.u + sol_4.u))
-end
-
-function transmission_coefficient_continuous_propagation(
-    Δ_es::AbstractVector{Float64},
-    probe::GuidedMode,
-    control::ElectricField,
-    atom::ThreeLevelAtom,
-    cloud::GaussianCloud,
-)
-    ts = Vector{ComplexF64}(undef, length(Δ_es))
-    for (i, Δ) in enumerate(Δ_es)
-        ts[i] = transmission_coefficient_continuous_propagation(
-            Δ, probe, control, atom, cloud
-        )
-    end
-
-    return ts
 end
 
 function continuous_propagation_integrand(u, p)
@@ -72,10 +56,10 @@ function _susceptibility(
 )
     fiber = probe.fiber
     Ω = control.rabi_frequency
-    Γ_ge = atom.decay_rate_lower
-    Γ_re = atom.decay_rate_upper
-    d_eg = atom.dipole_moment_lower
-    Δ_r = atom.detuning_upper
+    Γ_ge = atom.lower_transition.decay_rate
+    Γ_re = atom.upper_transition.decay_rate
+    d_eg = atom.lower_transition.dipole_moment
+    Δ_r = atom.upper_detuning
 
     Γ_guided = decay_rate_guided(ρ, ϕ, d_eg, probe, front_factor)
     Γ_guided_total = decay_rate_guided_total(ρ, ϕ, d_eg, fiber, front_factor)
@@ -94,11 +78,11 @@ function _susceptibility(
     front_factor::Float64,
 )
     fiber = probe.fiber
-    Γ_ge = atom.decay_rate_lower
-    Γ_re = atom.decay_rate_upper
-    d_eg = atom.dipole_moment_lower
-    d_re = atom.dipole_moment_upper
-    Δ_r = atom.detuning_upper
+    Γ_ge = atom.lower_transition.decay_rate
+    Γ_re = atom.upper_transition.decay_rate
+    d_eg = atom.lower_transition.dipole_moment
+    d_re = atom.upper_transition.dipole_moment
+    Δ_r = atom.upper_detuning
 
     Ω = rabi_frequency(ρ, ϕ, 0.0, d_re, control)
 
@@ -140,7 +124,7 @@ function decay_rate_guided_total(ρ, ϕ, d, fiber, front_factor)
 end
 
 function _transmittance(Δ, p)
-    t = transmission_coefficient_continuous_propagation(Δ, p...)
+    t = transmission_coefficient_continuous_propagation(Δ, p..., 1.0e-9, 1.0e-9)
     T = abs2(t)
     return T
 end
@@ -158,13 +142,13 @@ function probe_detuning_range(
     resolution::Integer=500,
     range_scale_factor::Real=4.0,
 )
-    Δr = atom.detuning_upper
+    Δr = atom.upper_detuning
     p = (probe, control, atom, cloud)
     sol = Optim.optimize(u -> transformed_transmittance(u, -Δr, p), 0.9, 1.0, rel_tol=eps())
     Δ_min = -Δr + 1 - 1 / Optim.minimizer(sol)
     T_min = Optim.minimum(sol)
 
-    dark_state_transmittance = transmission_coefficient_continuous_propagation(-Δr, p...)
+    dark_state_transmittance = _transmittance(-Δr, p)
     half_min = (T_min + dark_state_transmittance) / 2
 
     sol_fwhm_left = Optim.optimize(

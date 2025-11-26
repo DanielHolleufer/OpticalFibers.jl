@@ -28,53 +28,46 @@ function Base.hash(atom::TwoLevelAtom, h::UInt)
 end
 
 struct ThreeLevelAtom <: NLevelAtom
-    detuning_upper::Float64
-    decay_rate_lower::Float64
-    decay_rate_upper::Float64
-    dipole_moment_lower::Vector{ComplexF64}
-    dipole_moment_upper::Vector{ComplexF64}
-    function ThreeLevelAtom(
-        detuning_upper::Real,
-        decay_rate_lower::Real,
-        decay_rate_upper::Real,
-        dipole_moment_lower::AbstractVector{<:Number},
-        dipole_moment_upper::AbstractVector{<:Number},
+    lower_transition::TwoLevelAtom
+    upper_transition::TwoLevelAtom
+    upper_detuning::Float64
+end
+
+function ThreeLevelAtom(
+    lower_decay_rate::Real,
+    lower_dipole_moment::AbstractVector{<:Number},
+    upper_decay_rate::Real,
+    upper_dipole_moment::AbstractVector{<:Number},
+    upper_detuning::Real,
+)
+    return ThreeLevelAtom(
+        TwoLevelAtom(lower_decay_rate, lower_dipole_moment),
+        TwoLevelAtom(upper_decay_rate, upper_dipole_moment),
+        float(upper_detuning),
     )
-        return new(
-            float(detuning_upper),
-            float(decay_rate_lower),
-            float(decay_rate_upper),
-            complex(float(dipole_moment_lower)),
-            complex(float(dipole_moment_upper))
-        )
-    end
 end
 
 function Base.show(io::IO, atom::ThreeLevelAtom)
     println(io, "Three level atom with parameters:")    
-    println(io, "Δ_re = $(atom.detuning_upper)")
-    println(io, "Γ_eg = $(atom.decay_rate_lower)")
-    println(io, "Γ_re = $(atom.decay_rate_upper)")
-    println(io, "d_eg = $(atom.dipole_moment_lower)")
-    print(io, "d_re = $(atom.dipole_moment_upper)")
+    println(io, "Γ_ge = $(atom.lower_transition.decay_rate)")
+    println(io, "Γ_er = $(atom.upper_transition.decay_rate)")
+    println(io, "d_ge = $(atom.lower_transition.dipole_moment)")
+    println(io, "d_er = $(atom.upper_transition.dipole_moment)")
+    print(io, "Δ_r = $(atom.upper_detuning)")
 end
 
 function Base.:(==)(atom1::ThreeLevelAtom, atom2::ThreeLevelAtom)
-    eq1 = isequal(atom1.detuning_upper, atom2.detuning_upper)
-    eq2 = isequal(atom1.decay_rate_lower, atom2.decay_rate_lower)
-    eq3 = isequal(atom1.decay_rate_upper, atom2.decay_rate_upper)
-    eq4 = isequal(atom1.dipole_moment_lower, atom2.dipole_moment_lower)
-    eq5 = isequal(atom1.dipole_moment_upper, atom2.dipole_moment_upper)
-    return eq1 && eq2 && eq3 && eq4 && eq5
+    eq1 = isequal(atom1.lower_transition, atom2.lower_transition)
+    eq2 = isequal(atom1.upper_transition, atom2.upper_transition)
+    eq3 = isequal(atom1.upper_detuning, atom2.upper_detuning)
+    return eq1 && eq2 && eq3
 end
 
 function Base.hash(atom::ThreeLevelAtom, h::UInt)
     h = hash(ThreeLevelAtom, h)
-    h = hash(atom.detuning_upper, h)
-    h = hash(atom.decay_rate_lower, h)
-    h = hash(atom.decay_rate_upper, h)
-    h = hash(atom.dipole_moment_lower, h)
-    h = hash(atom.dipole_moment_upper, h)
+    h = hash(atom.lower_transition, h)
+    h = hash(atom.upper_transition, h)
+    h = hash(atom.upper_detuning, h)
     return h
 end
 

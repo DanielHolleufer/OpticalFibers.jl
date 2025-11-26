@@ -2,43 +2,20 @@ function _loss_function_optim(u, f, xdata, ydata)
     return sum(abs2, ydata .- f.(xdata, u...))
 end
 
-function two_level_transmission_coefficient(Δ::Real, Δ_shift::Real, Γ_1D::Real, Γ_loss::Real)
+function transmission_coefficient(Δ::Real, Δ_shift::Real, Γ_1D::Real, Γ_loss::Real)
     return 1 - im * Γ_1D / (Δ - Δ_shift + im * (Γ_1D + Γ_loss) / 2)
 end
 
-function three_level_transmission_coefficient(Δ::Real, Γ_1D::Real, Γ_loss::Real, Ω::Real, Δr::Real, γ::Real)
+function transmission_coefficient(Δ::Real, Γ_1D::Real, Γ_loss::Real, Ω::Real, Δr::Real, γ::Real)
     return 1 - im * Γ_1D / (Δ + im * (Γ_1D + Γ_loss) / 2 - Ω^2 / (Δ + Δr + im * γ / 2))
 end
 
-function single_two_level_transmission(Δ::Real, Γ_1D::Real, Γ_loss::Real)
+function transmittance(Δ::Real, Γ_1D::Real, Γ_loss::Real)
     return 1 - 4 * Γ_1D * Γ_loss / (4 * Δ^2 + (Γ_1D + Γ_loss)^2)
 end
 
-function single_two_level_transmission_fit(Δs, transmission_data, u0)
-    res = optimize(u -> _loss_function_optim(u, single_two_level_transmission, Δs, transmission_data), [0.0, 0.0], [Inf, Inf], u0)
-    return Optim.minimizer(res)
-end
-
-function single_three_level_transmission(Δ::Real, Γ_1D::Real, Γ_loss::Real, Ω::Real, Δr::Real, γ::Real)
-    return abs2(1 - im * Γ_1D / (Δ + im * (Γ_1D + Γ_loss) / 2 - Ω^2 / (Δ + Δr + im * γ / 2)))
-end
-
-function single_three_level_transmission_fit(Δs, transmission_data, u0)
-    lower_bounds = [0.0, 0.0, 0.0, -Inf, 0.0]
-    upper_bounds = [Inf, Inf, Inf, Inf, Inf]
-    res = optimize(u -> _loss_function_optim(u, single_three_level_transmission, Δs, transmission_data), lower_bounds, upper_bounds, u0)
-    return Optim.minimizer(res)
-end
-
-function complex_fit_two_level(Δ, t, u0)
-    res = optimize(u -> _loss_function_optim(u, two_level_transmission_coefficient, Δ, t), [-Inf, 0.0, 0.0], [Inf, Inf, Inf], u0)
-    return Optim.minimizer(res)
-end
-
-function optical_depth(T::Real)
-    T < 0 && throw(DomainError(T, "The transmission must be greater than or equal to zero."))
-    T > 1 && throw(DomainError(T, "The transmission must be smaller than or equal to one."))
-    return -log(T)
+function transmittance(Δ::Real, Γ_1D::Real, Γ_loss::Real, Ω::Real, Δr::Real, γ::Real)
+    return abs2(transmission_coefficient_three_level_atom(Δ, Γ_1D, Γ_loss, Ω, Δr, γ))
 end
 
 function coupling_strengths(d, positions, mode::GuidedMode)
@@ -65,7 +42,7 @@ function rabi_frequency(ρ, ϕ, z, d, field::GuidedField)
     return rabi
 end
 
-function rabi_frequencies(d, positions, field::GuidedField)
+function rabi_frequency(d, positions, field::GuidedField)
     N = size(positions)[2]
     rabis = Vector{ComplexF64}(undef, N)
     for i in 1:N
@@ -74,11 +51,12 @@ function rabi_frequencies(d, positions, field::GuidedField)
         z = positions[3, i]
         ρ = sqrt(x^2 + y^2)
         ϕ = atan(y, x)
-        ex, ey, ez = electric_guided_field_cartesian(ρ, ϕ, z, field)
-        rabis[i] = conj(d[1]) * ex + conj(d[2]) * ey + conj(d[3]) * ez
+        rabis[i] = rabi_frequency(ρ, ϕ, z, d, field)
     end
     return rabis
 end
+
+rabi_frequency(d, positions, field::ExternalField) = field.rabi_frequency
 
 """
     transmission_three_level(Δes, fiber, Δr, Ω::Number, gs, J, Γ, γ)
@@ -92,52 +70,44 @@ detuning `Δr`, control Rabi frequenciy `Ω`, pump coupling constants `gs`, dipo
 interaction matrix `J`, cross decay rate matrix `Γ`, and Rydberg to intermediate state decay
 rate `γ`.
 """
-function transmission_three_level(Δes, fiber, Δr, Ωs::Number, gs, J, Γ, γ)
-    ω₀ = fiber.frequency
-    dβ₀ = fiber.propagation_constant_derivative
-    t = zeros(ComplexF64, length(Δes))
-    M = hessenberg(-(J + im * Γ / 2))
+function transmission_three_level(
+    Δes, probe::GuidedMode, atom::ThreeLevelAtom, gs, Ω, H_effective, Γ
+)
+    ω₀ = frequency(probe)
+    dβ₀ = propagation_constant_derivative(probe)
+    Δr = atom.upper_detuning
+    Γ_er = atom.upper_transition.decay_rate
+    coupling = im * ω₀ * dβ₀ / 2
+    shift = Δr + im * Γ_er / 2
+
+    M = copy(H_effective)
+    t = Vector{ComplexF64}(undef, length(Δes))
     g_temp = similar(gs)
-    fill_transmissions_three_level!(t, g_temp, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, γ)
+    fill_transmissions_three_level!(t, M, g_temp, Δes, gs, Ω, coupling, shift, Γ)
+
     return t
 end
 
-function fill_transmissions_three_level!(t, g_temp, M, Δes, Δr, Ωs::Number, gs, ω₀, dβ₀, γ)
+function fill_transmissions_three_level!(
+    t, M::Hessenberg, g_temp, Δes, gs, Ω::Number, coupling, shift, Γ
+)
     for i in eachindex(t)
-        factor = -Δes[i] + abs2(Ωs) / (Δes[i] + Δr + im * γ / 2)
+        factor = -Δes[i] + abs2(Ω) / (Δes[i] + shift)
         ldiv!(g_temp, M + factor * I, gs)
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * g_temp
+        t[i] = 1.0 + coupling * gs' * g_temp
     end
 end
 
-"""
-    transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
-
-Compute the transmission of a cloud of three level atoms surrounding an optical fiber for 
-each value of the lower transition detuning given by `Δes`, where the Rabi frequency can be
-different from atom to atom.
-
-The parameters of the fiber are given by `fiber`, while the atoms have upper transition
-detuning `Δr`, control Rabi frequencies `Ωs`, pump coupling constants `gs`, dipole-dipole
-interaction matrix `J`, cross decay rate matrix `Γ`, and Rydberg to intermediate state decay
-rate `γ`.
-"""
-function transmission_three_level(Δes, fiber, Δr, Ωs::AbstractArray, gs, J, Γ, γ)
-    ω₀ = fiber.frequency
-    dβ₀ = fiber.propagation_constant_derivative
-    t = zeros(ComplexF64, length(Δes))
-    M = -(J + im * Γ / 2)
-    fill_transmissions_three_level!(t, M, Δes, Δr, Ωs, gs, ω₀, dβ₀, Γ, γ)
-    return t
-end
-
-function fill_transmissions_three_level!(t, M, Δes, Δr, Ωs::AbstractArray, gs, ω₀, dβ₀, Γ, γ)
+function fill_transmissions_three_level!(
+    t, M, g_temp, Δes, gs, Ωs::AbstractVector, coupling, shift, Γ
+)
     for i in eachindex(t)
         for j in eachindex(Ωs)
-            M[j, j] = -Δes[i] - im * Γ[j, j] / 2 + abs2(Ωs[j]) / (Δes[i] + Δr + im * γ / 2)
+            M[j, j] = -Δes[i] + abs2(Ωs[j]) / (Δes[i] + shift) - im * Γ[j, j] / 2
         end
-
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * (M \ gs)
+        F = lu(M)
+        ldiv!(g_temp, F, gs)
+        t[i] = 1.0 + coupling * gs' * g_temp
     end
 end
 
@@ -153,17 +123,18 @@ constants `gs`, dipole-dipole interaction matrix `J`, and cross decay rate matri
 function transmission_two_level(Δes, fiber, gs, J, Γ)
     ω₀ = fiber.frequency
     dβ₀ = fiber.propagation_constant_derivative
+    coupling = im * ω₀ * dβ₀ / 2
     t = zeros(ComplexF64, length(Δes))
     M = hessenberg(-(J + im * Γ / 2))
     g_temp = similar(gs)
-    fill_transmissions_two_level!(t, g_temp, M, Δes, gs, ω₀, dβ₀)
+    fill_transmissions_two_level!(t, g_temp, M, Δes, gs, coupling)
     return t
 end
 
-function fill_transmissions_two_level!(t, g_temp, M, Δes, gs, ω₀, dβ₀)
+function fill_transmissions_two_level!(t, g_temp, M, Δes, gs, coupling)
     for i in eachindex(t)
         ldiv!(g_temp, M - Δes[i] * I, gs)
-        t[i] = 1.0 + im * ω₀ * dβ₀ / 2 * gs' * g_temp
+        t[i] = 1.0 + coupling * gs' * g_temp
     end
 end
 

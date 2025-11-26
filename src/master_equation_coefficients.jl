@@ -317,8 +317,9 @@ function radiation_coefficients(
     Γ = radiation_decay_coefficients(positions, dipole, fiber, m_max, resolution)
 
     for j in 1:N, i in j:N
-        J[i, j] = J_vacuum[i, j] * sqrt(Γ[i, i] * Γ[j, j]) / Γ₀
-        J[j, i] = J_vacuum[j, i] * sqrt(Γ[i, i] * Γ[j, j]) / Γ₀
+        mode_density_correction = sqrt(Γ[i, i] * Γ[j, j]) / Γ₀
+        J[i, j] = J_vacuum[i, j] * mode_density_correction
+        J[j, i] = J_vacuum[j, i] * mode_density_correction
     end
 
     return J, Γ

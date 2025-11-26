@@ -36,7 +36,9 @@ struct GuidedMode{P<:Polarization,T<:Real}
     fiber::Fiber{T}
     polarization::Polarization
     f::Int
-    function GuidedMode(fiber::Fiber{T}, polarization::P, f::Int) where {P<:Polarization,T<:Real}
+    function GuidedMode(
+        fiber::Fiber{T}, polarization::P, f::Int
+    ) where {P<:Polarization,T<:Real}
         f ∈ (-1, 1) || throw(DomainError(f, "Propagation direction must be +1 or -1."))
         return new{P,T}(fiber, polarization, f)
     end

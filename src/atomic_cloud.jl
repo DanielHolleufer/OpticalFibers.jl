@@ -127,16 +127,8 @@ function peak_density_gaussian_cloud(
 )
     p = (σ_x, σ_y, σ_z, fiber_radius, exclusion_zone)
     normalization_constant = gaussian_cloud_normalization_constant(p)
-    lower = [-5 * σ_x, -5 * σ_y, -5 * σ_z]
-    upper = [5 * σ_x, 5 * σ_y, 5 * σ_z]
-    P_M = box_maximization(
-        (u, p) -> gaussian_cloud_unnormalized(u..., p),
-        [fiber_radius + exclusion_zone, 0.0, 0.0],
-        lower,
-        upper,
-        p,
-    )
-    peak_density = normalization_constant * P_M * number_of_atoms
+    peak_probability = normalization_constant * exp(-fiber_radius^2 / (2 * max(σ_x, σ_y)^2))
+    peak_density = number_of_atoms * peak_probability
     return peak_density
 end
 
