@@ -1,5 +1,8 @@
+using Bessels
+using DelimitedFiles
 using Documenter
 using Integrals
+using LinearAlgebra
 using OpticalFibers
 using Test
 
