@@ -320,20 +320,20 @@ end
     auxiliary = radiation_auxiliary_coefficients(ω, βs, m_max, hs, qs, a, n, evaluations)
     boundary = radiation_boundary_coefficients(ω, m_max, βs, qs, a, auxiliary)
 
-    A_coefficients1 = A_coefficient.(boundary[1:m_max + 1, :, 1])
-    A_coefficients2 = A_coefficient.(reverse(boundary[m_max + 1:end, :, 2], dims=1))
+    A_coefficients1 = A_coefficient.(boundary[1, 1:m_max + 1, :])
+    A_coefficients2 = A_coefficient.(reverse(boundary[2, m_max + 1:end, :], dims=1))
     @test A_coefficients1 == A_coefficients2
 
-    B_coefficients1 = B_coefficient.(boundary[:, :, 1])
-    B_coefficients2 = B_coefficient.(boundary[:, :, 2])
+    B_coefficients1 = B_coefficient.(boundary[1, :, :])
+    B_coefficients2 = B_coefficient.(boundary[2, :, :])
     @test B_coefficients1 == -B_coefficients2
 
-    C_coefficients1 = C_coefficient.(boundary[1:m_max + 1, :, 1])
-    C_coefficients2 = C_coefficient.(reverse(boundary[m_max + 1:end, :, 2], dims=1))
+    C_coefficients1 = C_coefficient.(boundary[1, 1:m_max + 1, :])
+    C_coefficients2 = C_coefficient.(reverse(boundary[2, m_max + 1:end, :], dims=1))
     @test C_coefficients1 == C_coefficients2
 
-    C_coefficients3 = C_coefficient.(boundary[1:m_max + 1, :, 2])
-    C_coefficients4 = C_coefficient.(reverse(boundary[m_max + 1:end, :, 1], dims=1))
+    C_coefficients3 = C_coefficient.(boundary[2, 1:m_max + 1, :])
+    C_coefficients4 = C_coefficient.(reverse(boundary[1, m_max + 1:end, :], dims=1))
     @test C_coefficients3 == C_coefficients4
 end
 

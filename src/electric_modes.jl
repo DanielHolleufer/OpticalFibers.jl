@@ -323,10 +323,10 @@ function radiation_auxiliary_coefficients(
     Nm = length(0:m_max)
     Nβ = length(βs)
     auxiliary = Matrix{RadiationAuxiliaryCoefficients}(undef, Nm, Nβ)
-    for (i, m) in enumerate(0:m_max)
-        for (j, β) in enumerate(βs)
-            h = hs[j]
-            q = qs[j]
+    for (j, β) in enumerate(βs)
+        h = hs[j]
+        q = qs[j]
+        for (i, m) in enumerate(0:m_max)
             J = bessel_hankel_evaluations.J[i, j]
             dJ = bessel_hankel_evaluations.dJ[i, j]
             H1 = bessel_hankel_evaluations.H1[i, j]
@@ -410,14 +410,14 @@ function radiation_boundary_coefficients(
     Nm = length(ms)
     Nβ = Int(length(βs) / 2)
     Nl = length(ls)
-    boundary = Array{RadiationBoundaryCoefficients,3}(undef, Nm, 2 * Nβ, Nl)
-    for (k, l) in enumerate(ls)
-        for (j, β) in enumerate(βs)
-            j_auxiliary = maximum((Nβ + 1 - j, j - Nβ))
-            for (i, m) in enumerate(ms)
-                i_auxiliary = abs(m) + 1
-                q = qs[j_auxiliary]
-                aux = auxiliary_coefficients[i_auxiliary, j_auxiliary]
+    boundary = Array{RadiationBoundaryCoefficients,3}(undef, Nl, Nm, 2 * Nβ)
+    for (k, β) in enumerate(βs)
+        k_auxiliary = max(Nβ + 1 - k, k - Nβ)
+        q = qs[k_auxiliary]
+        for (j, m) in enumerate(ms)
+            j_auxiliary = abs(m) + 1
+            aux = auxiliary_coefficients[j_auxiliary, k_auxiliary]
+            for (i, l) in enumerate(ls)
                 boundary[i, j, k] = radiation_boundary_coefficients(a, ω, β, m, l, q, aux)
             end
         end

@@ -223,42 +223,47 @@ function radiation_propagation_constants(fiber, resolution)
     return weights, βs, hs, qs
 end
 
-function radiation_coupling_strength!(
+function radiation_coupling_strength_fill!(
     coupling_strengths,
-    index,
-    position,
+    positions,
+    N,
     dipole,
     ω,
     βs,
     qs,
     m_max,
+    ms,
     boundary_coefficients::Array{RadiationBoundaryCoefficients,3},
     H1s,
     dH1s
 )
-    x, y, z = position
-    ρ = sqrt(x^2 + y^2)
-    ϕ = atan(y, x)
-    cosϕ = cos(ϕ)
-    sinϕ = sin(ϕ)
-    hankel_evaluations!(H1s, dH1s, ρ, m_max, qs)
-    Nβ = Int(length(βs) / 2)
-    for (k, l) in enumerate((-1, 1))
-        for (j, β) in enumerate(βs)
-            j_q = max(Nβ + 1 - j, j - Nβ)
-            q = qs[j_q]
+    for l in 1:N # Atom index
+        x, y, z = view(positions, :, l)
+        ρ = sqrt(x^2 + y^2)
+        ϕ = atan(y, x)
+        cosϕ = cos(ϕ)
+        sinϕ = sin(ϕ)
+        hankel_evaluations!(H1s, dH1s, ρ, m_max, qs)
+        Nβ = Int(length(βs) / 2)
+        for (k, β) in enumerate(βs) # Propagation constant index
+            k_q = max(Nβ + 1 - k, k - Nβ)
+            q = qs[k_q]
             propagation_phase = exp(im * β * z)
-            for (i, m) in enumerate(-m_max:m_max)
-                i_m = abs(m) + 1
-                H = H1s[i_m, j_q]
-                dH = dH1s[i_m, j_q]
+            for (j, m) in enumerate(ms) # Azimuthal index
+                j_m = abs(m) + 1
+                H = H1s[j_m, k_q]
+                dH = dH1s[j_m, k_q]
                 angular_phase = exp(im * m * ϕ)
-                c = boundary_coefficients[i, j, k]
-                eρ, eϕ, ez = electric_radiation_mode_base_external(ρ, ω, β, q, m, H, dH, c)
-                ex = eρ * cosϕ - eϕ * sinϕ
-                ey = eρ * sinϕ + eϕ * cosϕ
-                g = dipole[1] * ex + dipole[2] * ey + dipole[3] * ez
-                coupling_strengths[index, i, j, k] = g * angular_phase * propagation_phase
+                for i in (1, 2) # Polarization index
+                    c = boundary_coefficients[i, j, k]
+                    eρ, eϕ, ez = electric_radiation_mode_base_external(
+                        ρ, ω, β, q, m, H, dH, c
+                    )
+                    ex = eρ * cosϕ - eϕ * sinϕ
+                    ey = eρ * sinϕ + eϕ * cosϕ
+                    g = dipole[1] * ex + dipole[2] * ey + dipole[3] * ez
+                    coupling_strengths[i, j, k, l] = g * angular_phase * propagation_phase
+                end
             end
         end
     end
@@ -273,21 +278,20 @@ function radiation_decay_coefficients(
 )
     N = size(positions)[2]
     ω₀ = fiber.frequency
+    ms = -m_max:m_max
     weights, βs, hs, qs = radiation_propagation_constants(fiber, resolution)
     boundary = radiation_boundary_coefficients(m_max, βs, hs, qs, fiber)
     H1s = Matrix{ComplexF64}(undef, m_max + 1, length(qs))
     dH1s = similar(H1s)
-    gs = Array{ComplexF64,4}(undef, N, 2 * m_max + 1, 2 * resolution, 2)
-    for i in 1:N
-        radiation_coupling_strength!(
-            gs, i, view(positions, :, i), dipole, ω₀, βs, qs, m_max, boundary, H1s, dH1s
-        )
-    end
+    gs = Array{ComplexF64,4}(undef, 2, 2 * m_max + 1, 2 * resolution, N)
+    radiation_coupling_strength_fill!(
+        gs, positions, N, dipole, ω₀, βs, qs, m_max, ms, boundary, H1s, dH1s
+    )
     
     Γ = zeros(ComplexF64, N, N)
     for i in 1:N, j in i:N
         for (k, w) in enumerate(weights)
-            Γ[i, j] += w * dot(view(gs, j, :, k, :), view(gs, i, :, k, :))
+            Γ[i, j] += w * dot(view(gs, :, :, k, j), view(gs, :, :, k, i))
         end
         Γ[j, i] = conj(Γ[i, j])
     end
